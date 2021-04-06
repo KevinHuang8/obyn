@@ -1,0 +1,12 @@
+This file describes the corrections that were made to create V2 of the training dataset.
+Corrections were made by Sarah Graves in May 2020
+
+Corrections to ITC data
+
+1. For MLBS, there were 2 unique ITCs with the same indvID (MLBSU0031). The ITC (id=226) was changed to have the indvdID of MLBSU1031.
+2. For OSBS, there were 2 instances of 2 unique ITCs with the same indvdID (OSBS0011, OSBS0023). The ITC (id=1145) was changed to have the indvdID of OSBS10011. The ITC (id=1238) was changed to have the indvdID of OSBS10023.
+3. To address the issue of ITC polygons not aligning with the RS files: Image extents were created in R. Because it was possible that a single ITC was split between 2 image areas, the original ITCs were dissolved by indvdID to create a single multi-part polygon for each ITC. To convert the multi-part to single-part polygons, the bounding boxes of each ITC were created. To create the final ITCs, the intersect tool in QGIS was used to clip the ITC polygons to RS the extents.
+4. For MLBS, the ITC polygon corresponding to the MLBS_7 remote sensing file was removed. The MLBS_7 files still exist in the remote sensing folders.
+
+
+
