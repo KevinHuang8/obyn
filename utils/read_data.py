@@ -6,6 +6,8 @@ import matplotlib.pyplot as plt
 from .data_loading.parse_xml import parse_xml_dir
 from .data_loading.parse_las import load_las_directory
 from .data_loading.parse_tif import load_tif_directory
+from .data_loading.parse_shapefile import parse_shapefile
+from .process_lidar import *
 from .constants import *
 
 class Data:
@@ -48,13 +50,29 @@ class Data:
         self.labels = []
 
         if category == 'all':
-            raise NotImplementedError
+            self._load_all()
         elif category == 'data_neon':
             self._load_neon()
         elif category == 'data_idtrees':
-            raise NotImplementedError
+            self._load_idtrees()
         else:
             raise ValueError(f'Incorrect data category: {category}')
+
+    def _load_all(self):
+        self._load_neon()
+        neon_rgb = self.rgb
+        neon_lidar = self.lidar
+        neon_hyperspectral = self.hyperspectral
+        neon_chm = self.chm
+        neon_labels = self.labels
+
+        self._load_idtrees()
+
+        self.rgb.extend(neon_rgb)
+        self.lidar.extend(neon_lidar)
+        self.hyperspectral.extend(neon_hyperspectral)
+        self.chm.extend(neon_chm)
+        self.labels.extend(neon_labels)
 
     def _load_neon(self):
         if not self.force_reload and Data.DATA_LOCATION_NEON.is_file():
@@ -76,7 +94,6 @@ class Data:
             remove='_hyperspectral')
         chm_dict = load_tif_directory(image_dir / 'CHM', remove='_CHM')
         lidar_dict = load_las_directory(image_dir / 'LiDAR')
-        self.lidar_dict = lidar_dict
 
         # We iterate through all filenames like this so that the order
         # in each category (rgb, lidar, labels, etc.) match up
@@ -104,6 +121,42 @@ class Data:
         # Save to file
         with open(Data.DATA_LOCATION_NEON, 'wb+') as f:
             pickle.dump(self, f)
+
+    def _load_idtrees(self):
+        if not self.force_reload and Data.DATA_LOCATION_IDTREES.is_file():
+            # load from file
+            with open(Data.DATA_LOCATION_IDTREES, 'rb') as f:
+                data_obj = pickle.load(f)
+            self.rgb = data_obj.rgb
+            self.lidar = data_obj.lidar
+            self.hyperspectral = data_obj.hyperspectral
+            self.chm = data_obj.chm
+            self.labels = data_obj.labels
+            return
+
+        label_dict = parse_shapefile()
+        image_dir = IDTREES_DIR_RAW / 'RemoteSensing'
+        rgb_dict = load_tif_directory(image_dir / 'RGB')
+        hyperspectral_dict = load_tif_directory(image_dir / 'HSI')
+        chm_dict = load_tif_directory(image_dir / 'CHM')
+        lidar_dict = load_las_directory(image_dir / 'LAS')
+
+        for filename in label_dict:
+            if filename in rgb_dict:
+                self.rgb.append(rgb_dict[filename])
+                self.labels.append(label_dict[filename])
+
+                for attrib, d in zip([self.hyperspectral, self.lidar, self.chm],
+                    [hyperspectral_dict, lidar_dict, chm_dict]):
+                    try:
+                        attrib.append(d[filename])
+                    except KeyError:
+                        attrib.append(None)
+
+        # Save to file
+        with open(Data.DATA_LOCATION_IDTREES, 'wb+') as f:
+            pickle.dump(self, f)
+
 
     def remove_missing(self, name):
         '''
@@ -140,6 +193,36 @@ class Data:
             new_labels.append(self.labels[i])
 
         return new_images, new_labels
+
+class LidarData(Data):
+    DATA_LOCATION_NEON_LIDAR = DATA_DIR / 'data_neon_lidar'
+    DATA_LOCATION_IDTREES_LIDAR = DATA_DIR / 'data_idtrees_lidar'
+
+    def _load_neon(self):
+        if not self.force_reload and LidarData.DATA_LOCATION_NEON_LIDAR.is_file():
+            # load from file
+            with open(LidarData.DATA_LOCATION_NEON_LIDAR, 'rb') as f:
+                data_obj = pickle.load(f)
+            self.lidar = data_obj.lidar
+            self.x = data_obj.x
+            self.y = data_obj.y
+            return
+
+        # Create file from raw data
+        image_dir = NEON_DIR_RAW / 'evaluation'
+        label_dict = parse_xml_dir(NEON_DIR_RAW / 'annotations')
+        lidar_dict = load_las_directory(image_dir / 'LiDAR')
+
+        for filename in label_dict:
+            if filename in lidar_dict:
+                self.lidar.append(lidar_dict[filename])
+
+        self.x, self.y = process_lidar(self.lidar)
+
+        # Save to file
+        with open(LidarData.DATA_LOCATION_NEON_LIDAR, 'wb+') as f:
+            pickle.dump(self, f)
+
 
 if __name__ == '__main__':
     data = load_tif_directory(Path('train') / 'RemoteSensing' / 'RGB')
