@@ -11,17 +11,24 @@ def las_to_matrix(lasfile):
     lasfile - a pathlib Path to a .las lidar file, relative from DATA_DIR
 
     Returns a matrix representation of the lidar data - a numpy array
-    of shape (N, 4), where N is the total number of points in the point cloud.
-    columns, 1, 2, and 3 represent the x, y, and z coordinates, while
-    the last column contains the intensity of the point.
+    of shape (N, 5), where N is the total number of points in the point cloud.
+    Columns 1, 2, and 3 represent the x, y, and z coordinates, 
+    column 4 represents the intensity, and column 5 represents the point's
+    classification (labeled by tree # or 0 for ground)
     '''
 
     if not lasfile.name.endswith('.las'):
         raise ValueError(f'Not a .las file: {lasfile}')
 
     las = laspy.file.File(DATA_DIR / lasfile, mode='r')
+    
+    # Standardize X,Y coordinates to 0-40
+    min_coords = las.header.min
+    X = np.clip(las.x - min_coords[0], 0.0, 40.0)
+    Y = np.clip(las.y - min_coords[1], 0.0, 40.0)
+    Z = las.z - min_coords[2]
 
-    return np.c_[las.X, las.Y, las.Z, las.intensity]
+    return np.c_[X, Y, Z, las.intensity, las.user_data]
 
 def load_las_directory(dirpath):
     '''
@@ -39,12 +46,12 @@ def load_las_directory(dirpath):
 
     data_dict = {}
     for filename in os.listdir(directory):
-        print('start', filename)
+        #print('start', filename)
 
         if not filename.endswith('.las'):
             continue
 
-        print(filename)
+        #print(filename)
 
         data = las_to_matrix(dirpath / filename)
         
