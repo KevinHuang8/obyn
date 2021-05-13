@@ -1,4 +1,3 @@
-from utils import read_data
 import numpy as np
 from . import constants
 

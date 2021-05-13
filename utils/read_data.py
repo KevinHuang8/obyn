@@ -225,6 +225,5 @@ class LidarData(Data):
 
 
 if __name__ == '__main__':
-    data = load_tif_directory(Path('train') / 'RemoteSensing' / 'RGB')
-    plt.imshow(data[0])
-    plt.show()
+    LidarData(category='data_neon')
+
