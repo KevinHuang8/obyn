@@ -101,9 +101,9 @@ def train():
 
         # Load all data into memory
         data = read_data.LidarData(category='data_neon')
-        all_data = data.x
-        all_group = data.y
-        all_seg = np.where(all_group > 0, 1, 0) # Segmentation results are 0 for ground, 1 for tree
+        all_data = data.x # Lidar points NxPOINT_NUMx3
+        all_group = data.y # Group/instance labels NxPOINT_NUM, will be one-hot encoded later
+        all_seg = np.where(all_group > 0, 1, 0) # Segmentation results NxPOINT_NUM: 0 for ground, 1 for tree
 
         num_data = all_data.shape[0]
         num_batch = num_data // BATCH_SIZE
@@ -127,6 +127,7 @@ def train():
                 begidx = j * BATCH_SIZE
                 endidx = (j + 1) * BATCH_SIZE
 
+                # Convert the ground-truth labels to one-hot encode
                 pts_label_one_hot, pts_label_mask = model.convert_seg_to_one_hot(all_seg[order[begidx: endidx]])
                 pts_group_label, pts_group_mask = model.convert_groupandcate_to_one_hot(all_group[order[begidx: endidx]])
 
