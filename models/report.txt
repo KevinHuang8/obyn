@@ -1,0 +1,49 @@
+TensorFlow 2.0 Upgrade Script
+-----------------------------
+Converted 1 files
+Detected 0 issues that require attention
+--------------------------------------------------------------------------------
+================================================================================
+Detailed log follows:
+
+================================================================================
+--------------------------------------------------------------------------------
+Processing file 'model.py'
+ outputting to 'model_c.py'
+--------------------------------------------------------------------------------
+
+21:25: INFO: Renamed 'tf.placeholder' to 'tf.compat.v1.placeholder'
+23:25: INFO: Renamed 'tf.placeholder' to 'tf.compat.v1.placeholder'
+25:23: INFO: Renamed 'tf.placeholder' to 'tf.compat.v1.placeholder'
+26:25: INFO: Renamed 'tf.placeholder' to 'tf.compat.v1.placeholder'
+27:27: INFO: Renamed 'tf.placeholder' to 'tf.compat.v1.placeholder'
+28:24: INFO: Renamed 'tf.placeholder' to 'tf.compat.v1.placeholder'
+30:15: INFO: Renamed 'tf.placeholder' to 'tf.compat.v1.placeholder'
+129:8: INFO: Added keywords to args of function 'tf.reduce_sum'
+132:32: INFO: Added keywords to args of function 'tf.transpose'
+132:70: INFO: Added keywords to args of function 'tf.transpose'
+159:54: INFO: Renamed keyword argument for tf.expand_dims from dim to axis
+170:48: INFO: Added keywords to args of function 'tf.transpose'
+171:22: INFO: Renamed 'tf.matrix_set_diag' to 'tf.linalg.set_diag'
+173:55: INFO: Added keywords to args of function 'tf.transpose'
+174:20: INFO: Renamed 'tf.matrix_set_diag' to 'tf.linalg.set_diag'
+184:20: INFO: Added keywords to args of function 'tf.reduce_sum'
+185:28: INFO: Added keywords to args of function 'tf.reduce_sum'
+186:28: INFO: Added keywords to args of function 'tf.reduce_sum'
+199:46: INFO: Added keywords to args of function 'tf.transpose'
+203:18: INFO: Added keywords to args of function 'tf.reduce_mean'
+206:18: INFO: Changing labels arg of tf.nn.softmax_cross_entropy_with_logits to tf.stop_gradient(labels). Please check this transformation.
+
+208:18: INFO: Added keywords to args of function 'tf.reduce_mean'
+211:13: INFO: Added keywords to args of function 'tf.reduce_sum'
+218:14: INFO: Renamed 'tf.div' to 'tf.compat.v1.div'
+218:21: INFO: Added keywords to args of function 'tf.reduce_sum'
+219:22: INFO: Added keywords to args of function 'tf.reduce_sum'
+222:22: INFO: Added keywords to args of function 'tf.reduce_mean'
+222:37: INFO: Renamed 'tf.squared_difference' to 'tf.math.squared_difference'
+228:17: INFO: Added keywords to args of function 'tf.reduce_mean'
+229:11: INFO: Added keywords to args of function 'tf.reduce_sum'
+230:11: INFO: Added keywords to args of function 'tf.reduce_sum'
+231:11: INFO: Added keywords to args of function 'tf.reduce_sum'
+--------------------------------------------------------------------------------
+
