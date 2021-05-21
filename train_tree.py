@@ -5,6 +5,8 @@ import os
 import sys
 from models import model
 import utils.read_data as read_data
+import matplotlib.pyplot as plt
+from tqdm import tqdm
 
 gpu_number = 1 # GPU number to use
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"  # see issue #152
@@ -12,10 +14,10 @@ os.environ["CUDA_VISIBLE_DEVICES"] = str(gpu_number)
 
 # Declare constants
 POINT_NUM = 1024 # Number of points per point cloud
-BATCH_SIZE = 16
+BATCH_SIZE = 32
 NUM_GROUPS = 200 # Maximum number of instances (trees) in a point cloud
 NUM_CATEGORY = 2 # Number of different classes (tree, ground)
-TRAINING_EPOCHES = 2
+TRAINING_EPOCHES = 5
 
 print('#### Batch Size: {0}'.format(BATCH_SIZE))
 print('#### Point Number: {0}'.format(POINT_NUM))
@@ -56,7 +58,7 @@ def train():
             pointclouds_ph, ptsseglabel_ph, ptsgroup_label_ph, pts_seglabel_mask_ph, pts_group_mask_ph, alpha_ph = \
                 model.placeholder_inputs(BATCH_SIZE, POINT_NUM, NUM_GROUPS, NUM_CATEGORY)
 
-            is_training_ph = tf.constant(True, dtype=tf.bool)
+            is_training_ph = tf.placeholder(tf.bool, shape=())
 
             # labels dict represents ground truth
             labels = {'ptsgroup': ptsgroup_label_ph,
@@ -105,15 +107,33 @@ def train():
         all_group = data.y # Group/instance labels NxPOINT_NUM, will be one-hot encoded later
         all_seg = np.where(all_group > 0, 1, 0) # Segmentation results NxPOINT_NUM: 0 for ground, 1 for tree
 
-        num_data = all_data.shape[0]
-        num_batch = num_data // BATCH_SIZE
+        # Train/Validation Split
+        idx = np.arange(all_data.shape[0])
+        validation_percentage = 0.0
+        np.random.shuffle(idx)
+        cutoff_idx = int(len(idx) * validation_percentage)
+        train_idx = idx[cutoff_idx:]
+        valid_idx = idx[:cutoff_idx]
+
+        train_data = all_data[train_idx]
+        train_group = all_group[train_idx]
+        train_seg = all_seg[train_idx]
+
+        valid_data = all_data[valid_idx]
+        valid_group = all_group[valid_idx]
+        valid_seg = all_seg[valid_idx]
+
+        num_data_train = len(train_data)
+        num_data_valid = len(valid_data)
+        num_batch_train = num_data_train // BATCH_SIZE
+        num_batch_valid = num_data_valid // BATCH_SIZE
 
         def train_one_epoch(epoch_num):
 
             ### NOTE: is_training = False: We do not update bn parameters during training due to the small batch size. This requires pre-training PointNet with large batchsize (say 32).
             is_training = True
 
-            order = np.arange(num_data)
+            order = np.arange(num_data_train)
             np.random.shuffle(order)
 
             total_loss = 0.0
@@ -123,22 +143,22 @@ def train():
             total_pos = 0.0
             same_cnt0 = 0
 
-            for j in range(num_batch):
+            for j in tqdm(range(num_batch_train)):
                 begidx = j * BATCH_SIZE
                 endidx = (j + 1) * BATCH_SIZE
 
                 # Convert the ground-truth labels to one-hot encode
-                pts_label_one_hot, pts_label_mask = model.convert_seg_to_one_hot(all_seg[order[begidx: endidx]])
-                pts_group_label, pts_group_mask = model.convert_groupandcate_to_one_hot(all_group[order[begidx: endidx]])
+                pts_label_one_hot, pts_label_mask = model.convert_seg_to_one_hot(train_seg[order[begidx: endidx]])
+                pts_group_label, pts_group_mask = model.convert_groupandcate_to_one_hot(train_group[order[begidx: endidx]])
 
                 feed_dict = {
-                    pointclouds_ph: all_data[order[begidx: endidx], ...],
+                    pointclouds_ph: train_data[order[begidx: endidx], ...],
                     ptsseglabel_ph: pts_label_one_hot,
                     ptsgroup_label_ph: pts_group_label,
                     pts_seglabel_mask_ph: pts_label_mask,
                     pts_group_mask_ph: pts_group_mask,
                     is_training_ph: is_training,
-                    alpha_ph: min(10., (float(epoch_num) / 5.) * 2. + 2.),
+                    alpha_ph: min(10., (float(epoch_num-1) / 5.) * 2. + 2.),
                 }
 
                 _, loss_val, simmat_val, grouperr_val, same_val, same_cnt_val, diff_val, diff_cnt_val, pos_val, pos_cnt_val = sess.run([train_op, loss, net_output['simmat'], grouperr, same, same_cnt, diff, diff_cnt, pos, pos_cnt], feed_dict=feed_dict)
@@ -151,30 +171,69 @@ def train():
                 total_pos += pos_val / pos_cnt_val
 
 
-                if j % 10 == 9:
-                    printout(flog, 'Batch: %d, loss: %f, grouperr: %f, same: %f, diff: %f, pos: %f' % (j, total_loss/10, total_grouperr/10, total_same/same_cnt0, total_diff/10, total_pos/10))
 
-                    lr_sum, batch_sum, train_loss_sum, group_err_sum = sess.run( \
-                        [lr_op, batch, total_train_loss_sum_op, group_err_op], \
-                        feed_dict={total_training_loss_ph: total_loss / 10.,
-                                   group_err_loss_ph: total_grouperr / 10., })
+            # Return train loss values per epoch
+            loss_train = total_loss/num_batch_train
+            grouperr_train = total_grouperr/num_batch_train
+            same_train = total_same/same_cnt0
+            diff_train = total_diff/num_batch_train
+            pos_train = total_pos/num_batch_train
 
-                    train_writer.add_summary(train_loss_sum, batch_sum)
-                    train_writer.add_summary(lr_sum, batch_sum)
-                    train_writer.add_summary(group_err_sum, batch_sum)
+            '''
+            # Evaluate validation error
+            total_loss = 0.0
+            total_grouperr = 0.0
+            total_same = 0.0
+            total_diff = 0.0
+            total_pos = 0.0
+            same_cnt0 = 0
 
-                    total_grouperr = 0.0
-                    total_loss = 0.0
-                    total_diff = 0.0
-                    total_same = 0.0
-                    total_pos = 0.0
-                    same_cnt0 = 0
+            for j in tqdm(range(num_batch_valid)):
+                begidx = j * BATCH_SIZE
+                endidx = (j + 1) * BATCH_SIZE
+
+                # Convert the ground-truth labels to one-hot encode
+                pts_label_one_hot, pts_label_mask = model.convert_seg_to_one_hot(valid_seg[begidx: endidx])
+                pts_group_label, pts_group_mask = model.convert_groupandcate_to_one_hot(valid_group[begidx: endidx])
+
+                feed_dict = {
+                    pointclouds_ph: valid_data[begidx: endidx, ...],
+                    ptsseglabel_ph: pts_label_one_hot,
+                    ptsgroup_label_ph: pts_group_label,
+                    pts_seglabel_mask_ph: pts_label_mask,
+                    pts_group_mask_ph: pts_group_mask,
+                    is_training_ph: is_training,
+                    alpha_ph: min(10., (float(epoch_num-1) / 5.) * 2. + 2.),
+                }
+                _, loss_val, simmat_val, grouperr_val, same_val, same_cnt_val, diff_val, diff_cnt_val, pos_val, pos_cnt_val = sess.run([train_op, loss, net_output['simmat'], grouperr, same, same_cnt, diff, diff_cnt, pos, pos_cnt], feed_dict=feed_dict)
+                total_loss += loss_val
+                total_grouperr += grouperr_val
+                total_diff += (diff_val / diff_cnt_val)
+                if same_cnt_val > 0:
+                    total_same += same_val / same_cnt_val
+                    same_cnt0 += 1
+                total_pos += pos_val / pos_cnt_val
+
+            # Return valid loss values per epoch
+            loss_valid = total_loss/num_batch_valid
+            grouperr_valid = total_grouperr/num_batch_valid
+            same_valid = total_same/same_cnt0
+            diff_valid = total_diff/num_batch_valid
+            pos_valid = total_pos/num_batch_valid
+            '''
+
+            return loss_train, 0
 
 
-        for epoch in range(TRAINING_EPOCHES):
+        train_loss = []
+        valid_loss = []
+        for epoch in range(1, TRAINING_EPOCHES+1):
             printout(flog, '\n>>> Training epoch %d/%d ...' % (epoch, TRAINING_EPOCHES))
 
-            train_one_epoch(epoch)
+            epoch_train_loss, epoch_valid_loss = train_one_epoch(epoch)
+            train_loss.append(epoch_train_loss)
+            valid_loss.append(epoch_valid_loss)
+            print("Training Loss: {}, Validation Loss: {}".format(epoch_train_loss, epoch_valid_loss))
             flog.flush()
 
             '''
@@ -183,6 +242,14 @@ def train():
             printout(flog, 'Successfully store the checkpoint model into ' + cp_filename)
             '''
 
+        # Plot training loss
+        plt.plot(train_loss)
+        plt.plot(valid_loss)
+        plt.title('model loss')
+        plt.ylabel('loss')
+        plt.xlabel('epoch')
+        plt.legend(['train', 'validation'], loc='upper left')
+        plt.show()
 
         flog.close()
 

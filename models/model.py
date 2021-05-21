@@ -107,7 +107,7 @@ def get_model(point_cloud, is_training, group_cate_num=50, m=10., bn_decay=None)
     '''
     #input: point_cloud: BxNx9 (XYZ, RGB, NormalizedXYZ)
 
-    batch_size = int(point_cloud.get_shape()[0])
+    batch_size = point_cloud.get_shape()[0].value
 
     F = pointnet.get_model(point_cloud, is_training, bn=True, bn_decay=bn_decay)
 
