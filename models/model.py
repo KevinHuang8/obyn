@@ -13,7 +13,7 @@ import pointnet
 
 
 NUM_CATEGORY = 2
-NUM_GROUPS = 200
+NUM_GROUPS = 210
 
 def placeholder_inputs(batch_size, num_point, num_group, num_cate):
     if num_point == 0:

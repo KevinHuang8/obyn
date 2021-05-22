@@ -8,16 +8,16 @@ import utils.read_data as read_data
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 
-gpu_number = 1 # GPU number to use
+gpu_number = 0 # GPU number to use
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"  # see issue #152
 os.environ["CUDA_VISIBLE_DEVICES"] = str(gpu_number)
 
 # Declare constants
 POINT_NUM = 1024 # Number of points per point cloud
 BATCH_SIZE = 32
-NUM_GROUPS = 200 # Maximum number of instances (trees) in a point cloud
+NUM_GROUPS = 210 # Maximum number of instances (trees) in a point cloud
 NUM_CATEGORY = 2 # Number of different classes (tree, ground)
-TRAINING_EPOCHES = 5
+TRAINING_EPOCHES = 20
 
 print('#### Batch Size: {0}'.format(BATCH_SIZE))
 print('#### Point Number: {0}'.format(POINT_NUM))
@@ -102,7 +102,7 @@ def train():
         flog = open('log.txt', 'w')
 
         # Load all data into memory
-        data = read_data.LidarData(category='data_neon')
+        data = read_data.LidarData(category='all')
         all_data = data.x # Lidar points NxPOINT_NUMx3
         all_group = data.y # Group/instance labels NxPOINT_NUM, will be one-hot encoded later
         all_seg = np.where(all_group > 0, 1, 0) # Segmentation results NxPOINT_NUM: 0 for ground, 1 for tree

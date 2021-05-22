@@ -223,6 +223,41 @@ class LidarData(Data):
         with open(LidarData.DATA_LOCATION_NEON_LIDAR, 'wb+') as f:
             pickle.dump(self, f)
 
+    def _load_idtrees(self):
+        if not self.force_reload and LidarData.DATA_LOCATION_IDTREES_LIDAR.is_file():
+            # load from file
+            with open(LidarData.DATA_LOCATION_IDTREES_LIDAR, 'rb') as f:
+                data_obj = pickle.load(f)
+            self.lidar = data_obj.lidar
+            self.x = data_obj.x
+            self.y = data_obj.y
+            return
+
+        # Create file from raw data
+        image_dir = IDTREES_DIR_RAW / 'RemoteSensing'
+        label_dict = parse_shapefile()
+        lidar_dict = load_las_directory(image_dir / 'LAS')
+
+        for filename in label_dict:
+            if filename in lidar_dict:
+                self.lidar.append(lidar_dict[filename])
+
+        self.x, self.y = process_lidar(self.lidar)
+
+        # Save to file
+        with open(LidarData.DATA_LOCATION_IDTREES_LIDAR, 'wb+') as f:
+            pickle.dump(self, f)
+
+    def _load_all(self):
+        self._load_neon()
+        x = self.x
+        y = self.y
+        neon_lidar = self.lidar
+
+        self._load_idtrees()
+        self.x = np.r_[x, self.x]
+        self.y = np.r_[y, self.y]
+        self.lidar.extend(neon_lidar)
 
 if __name__ == '__main__':
     LidarData(category='data_neon')

@@ -17,3 +17,6 @@ data/NeonTrees/evaluation/RGB
 *.zip
 data/data_idtrees
 data/NeonTrees
+data/data_idtrees_lidar
+train/
+log.txt
