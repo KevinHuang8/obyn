@@ -242,7 +242,7 @@ class LidarData(Data):
             if filename in lidar_dict:
                 self.lidar.append(lidar_dict[filename])
 
-        self.x, self.y = process_lidar(self.lidar)
+        self.x, self.y = process_lidar(self.lidar, split=False)
 
         # Save to file
         with open(LidarData.DATA_LOCATION_IDTREES_LIDAR, 'wb+') as f:
