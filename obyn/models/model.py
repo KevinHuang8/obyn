@@ -10,10 +10,11 @@ import tensorflow as tf
 import numpy as np
 import tf_util
 import pointnet
+from ..utils import constants as C
 
 
 NUM_CATEGORY = 2
-NUM_GROUPS = 210
+NUM_GROUPS = C.NUM_GROUPS
 
 def placeholder_inputs(batch_size, num_point, num_group, num_cate):
     if num_point == 0:

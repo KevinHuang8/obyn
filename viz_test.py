@@ -1,6 +1,6 @@
-from utils.read_data import Data
+from obyn.utils.read_data import Data
 import numpy as np
-import utils.visualization.show3d_balls as viz
+import obyn.utils.visualization.show3d_balls as viz
 import random
 
 d = Data(category='data_neon')

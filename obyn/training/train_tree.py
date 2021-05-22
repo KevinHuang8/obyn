@@ -3,9 +3,10 @@ import tensorflow as tf
 import numpy as np
 import os
 import sys
-from models import model
-import utils.read_data as read_data
+from ..models import model
+from ..utils import read_data as read_data
 import matplotlib.pyplot as plt
+from ..utils import constants as C
 from tqdm import tqdm
 
 gpu_number = 0 # GPU number to use
@@ -15,7 +16,7 @@ os.environ["CUDA_VISIBLE_DEVICES"] = str(gpu_number)
 # Declare constants
 POINT_NUM = 1024 # Number of points per point cloud
 BATCH_SIZE = 32
-NUM_GROUPS = 210 # Maximum number of instances (trees) in a point cloud
+NUM_GROUPS = C.NUM_GROUPS # Maximum number of instances (trees) in a point cloud
 NUM_CATEGORY = 2 # Number of different classes (tree, ground)
 TRAINING_EPOCHES = 20
 
