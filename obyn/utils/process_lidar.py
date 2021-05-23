@@ -45,43 +45,56 @@ def pad_zero(points, amount, intensity=0):
 
     return points
 
-def downsample(points, target):
+def downsample_voxel_grid(points, voxel_size):
+    '''
+    Apply a voxel grid filter to a point cloud for downsampling.
+    
+    Taken from https://towardsdatascience.com/how-to-automate-lidar-point-cloud-processing-with-python-a027454a536c
+    '''
+    # See link for explanation for code - pretty crazy
+    non_empty_voxel_keys, inverse, nb_pts_per_voxel= np.unique(((points[:, :3] - np.min(points[:, :3], axis=0)) // voxel_size).astype(int), axis=0, return_inverse=True, return_counts=True)
+    idx_pts_vox_sorted=np.argsort(inverse)
+    voxel_grid={}
+    grid_candidate_center=[]
+    last_seen=0
+
+    for idx,vox in enumerate(non_empty_voxel_keys):
+        voxel_grid[tuple(vox)]=points[idx_pts_vox_sorted[last_seen:last_seen+nb_pts_per_voxel[idx]]]
+        representative = voxel_grid[tuple(vox)][np.linalg.norm(voxel_grid[tuple(vox)][:, :3] -np.mean(voxel_grid[tuple(vox)][:, :3],axis=0),axis=1).argmin()]
+        grid_candidate_center.append(representative)
+        last_seen+=nb_pts_per_voxel[idx]
+
+    return np.array(grid_candidate_center)
+
+def downsample_decimation(points, target):
     '''
     Downsample point cloud 'points' until the number of points
-    is equal to target.
-
-    Downsample method is performed by removing points at random,
-    but prioritize points below the median z value (as the canopy contains
-    the most information.)
+    is equal to target, through random decimation.
     '''
-    z_med = np.median(points[:, 2])
-
     n = points.shape[0]
-    m = len(points[points[:, 2] < z_med])
-    lower_ind = np.where(points[:, 2] < z_med)[0]
-    upper_ind = np.where(points[:, 2] >= z_med)[0]
-
     to_remove = n - target
+    
+    keep = np.random.choice(np.arange(n), size=(n - to_remove), replace=False)
+    return points[keep, :]
 
-    # if can remove less than half of points from bottom,
-    # take only from bottom
-    if to_remove < m / 2:
-        keep = np.random.choice(lower_ind, size=(m - to_remove, ), replace=False)
-        new_points = points[keep, :]
-        return new_points
+def downsample_voxel_match_size(points, n, grid_start=0.5, step_size=0.25):
+    '''
+    Downsample points with a voxel grid filter. However, the grid size is 
+    chosen through a brute force search. 
 
-    # Otherwise, remove 2/3 of points from bottom, 1/3 from top if possible
-    to_remove_b = int(to_remove * (2/3))
+    We start at grid_size = grid_start, incrementing by step_size each iteration
+    until the downsampled points have less than n points.
 
-    if to_remove_b > m:
-        keep = np.random.choice(np.arange(n), size=(n - to_remove, ), replace=False)
-        return points[keep, :]
-
-    to_remove_t = to_remove - to_remove_b
-
-    keepb = np.random.choice(lower_ind, size=(m - to_remove_b, ), replace=False)
-    keept = np.random.choice(upper_ind, size=((n - m) - to_remove_t, ), replace=False)
-    return np.r_[points[keepb], points[keept]]
+    Returns the downsampled points.
+    '''
+    N_points = len(points)
+    grid_size = grid_start
+    while N_points > n:
+        down_pts = downsample_voxel_grid(points, grid_size)
+        N_points = len(down_pts)
+        grid_size += step_size
+        
+    return down_pts
 
 def sync_size(lidar_data, n=1024):
     '''
@@ -91,34 +104,47 @@ def sync_size(lidar_data, n=1024):
 
     n - number of points to use
     '''
-    lens = []
-    for img in lidar_data:
-        n_zero = len(img[img[:, 4] == 0])
-        nonzero = len(img) - n_zero
-        lens.append(nonzero)
-
-    lens = np.array(lens)
-    ordered_ind = np.argsort(lens)[::-1]
-
     new_points = []
-    for i in ordered_ind:
-        nonzero_pts = lidar_data[i][lidar_data[i][:, 4] != 0]
-        zero_pts = lidar_data[i][lidar_data[i][:, 4] == 0]
-
+    for points in lidar_data:
+        nonzero_pts = points[points[:, 4] != 0]
+        zero_pts = points[points[:, 4] == 0]
+        
+        # If we have more nonzero (i.e., points that actually belong to trees)
+        # than the target size n, then we must remove some of them.
+        # The goal is to first get the number of nonzero points under the target
+        # because then we can manipulate just the zero (i.e. background) points
+        # to get to n. The background points are much less important, and so
+        # we want to manipulate those if possible.
         if len(nonzero_pts) > n:
-            nonzero_pts = downsample(nonzero_pts, n)
-            old_pts = np.r_[nonzero_pts, zero_pts]
+            # First, use a voxel grid filter to remove some of the nonzero points
+            # use downsample_voxel_match_size for more data retained, but is
+            # slower.
+            # down_pts = downsample_voxel_grid(points, 1)
+            down_pts = downsample_voxel_match_size(nonzero_pts, n)
+            
+            # If we still have excess points, we need to remove exactly enough
+            # to get to n points. (Note, this should never happen when using
+            # downsample_voxel_match_size)
+            if len(down_pts) > n:
+                # We just remove nonzero points at random to get to the target.
+                nonzero_pts = downsample_decimation(down_pts, n)
+                old_pts = np.r_[nonzero_pts, zero_pts]
+            # Otherwise, we are done
+            else:
+                old_pts = np.r_[down_pts, zero_pts]
         else:
-            old_pts = lidar_data[i]
-
+            old_pts = points
+        
+        # We now have less nonzero points than n. Thus, we can just pad/remove
+        # zero points until we get to the target size n.
         amount = old_pts.shape[0] - n
         if amount > 0:
-            points = remove_excess(old_pts, amount)
+            npoints = remove_excess(old_pts, amount)
         elif amount < 0:
-            points = pad_zero(old_pts, -amount)
+            npoints = pad_zero(old_pts, -amount)
         else:
-            points = old_pts
-        new_points.append(points)
+            npoints = old_pts
+        new_points.append(npoints)
 
     return np.array(new_points)
 
@@ -139,19 +165,24 @@ def quad_points(lidar_data, threshold=50):
         max_y = points[:, 1].max()
         avg_y = (min_y + max_y) / 2
 
-        s = points[(points[:, 0] < avg_x) & (points[:, 0] < avg_y)]
+        s = points[(points[:, 0] < avg_x) & (points[:, 1] < avg_y)]
         if len(s[s[:, 4] != 0]) >= threshold:
-            smaller_points.append(s)
-        s = points[(points[:, 0] < avg_x) & (points[:, 0] >= avg_y)]
+            smaller_points.append(standardize_points(s))
+        s = points[(points[:, 0] < avg_x) & (points[:, 1] >= avg_y)]
         if len(s[s[:, 4] != 0]) >= threshold:
-            smaller_points.append(s)
-        s = points[(points[:, 0] >= avg_x) & (points[:, 0] < avg_y)]
+            smaller_points.append(standardize_points(s))
+        s = points[(points[:, 0] >= avg_x) & (points[:, 1] < avg_y)]
         if len(s[s[:, 4] != 0]) >= threshold:
-            smaller_points.append(s)
-        s = points[(points[:, 0] >= avg_x) & (points[:, 0] >= avg_y)]
+            smaller_points.append(standardize_points(s))
+        s = points[(points[:, 0] >= avg_x) & (points[:, 1] >= avg_y)]
         if len(s[s[:, 4] != 0]) >= threshold:
-            smaller_points.append(s)
+            smaller_points.append(standardize_points(s))
     return smaller_points
+
+def standardize_points(points):
+    min_points = np.min(points, axis=0)
+    points = points - min_points
+    return points
 
 def create_group_matrix(data, n=1024):
     '''

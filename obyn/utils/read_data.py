@@ -1,6 +1,7 @@
 import os
 import pickle
 import numpy as np
+import laspy
 from pathlib import Path
 import matplotlib.pyplot as plt
 from .data_loading.parse_xml import parse_xml_dir
@@ -204,18 +205,28 @@ class LidarData(Data):
             with open(LidarData.DATA_LOCATION_NEON_LIDAR, 'rb') as f:
                 data_obj = pickle.load(f)
             self.lidar = data_obj.lidar
+            self.lidar_filenames = data_obj.lidar_filenames
             self.x = data_obj.x
             self.y = data_obj.y
             return
 
         # Create file from raw data
         image_dir = NEON_DIR_RAW / 'evaluation'
-        label_dict = parse_xml_dir(NEON_DIR_RAW / 'annotations')
         lidar_dict = load_las_directory(image_dir / 'LiDAR')
 
-        for filename in label_dict:
-            if filename in lidar_dict:
-                self.lidar.append(lidar_dict[filename])
+        self.lidar_filenames = []
+
+        for filename in lidar_dict:
+            las = laspy.file.File(image_dir / 'LiDAR' / (filename + '.las'), 
+                mode='r')
+            # las images without 'label' field do not have labels
+            try:
+                las.label
+            except:
+                continue
+
+            self.lidar.append(lidar_dict[filename])
+            self.lidar_filenames.append(filename)
 
         self.x, self.y = process_lidar(self.lidar)
 
@@ -236,7 +247,7 @@ class LidarData(Data):
         # Create file from raw data
         image_dir = IDTREES_DIR_RAW / 'RemoteSensing'
         label_dict = parse_shapefile()
-        lidar_dict = load_las_directory(image_dir / 'LAS')
+        lidar_dict = load_las_directory(image_dir / 'LAS', xy_max=20)
 
         for filename in label_dict:
             if filename in lidar_dict:

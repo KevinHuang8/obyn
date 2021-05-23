@@ -6,7 +6,7 @@ import numpy as np
 
 from ..constants import *
 
-def las_to_matrix(lasfile):
+def las_to_matrix(lasfile, xy_max=40):
     '''
     lasfile - a pathlib Path to a .las lidar file, relative from DATA_DIR
 
@@ -22,15 +22,18 @@ def las_to_matrix(lasfile):
 
     las = laspy.file.File(DATA_DIR / lasfile, mode='r')
     
-    # Standardize X,Y coordinates to 0-40
+    # Standardize X,Y coordinates to 0-xy_max
     min_coords = las.header.min
-    X = np.clip(las.x - min_coords[0], 0.0, 40.0)
-    Y = np.clip(las.y - min_coords[1], 0.0, 40.0)
+    X = np.clip(las.x - min_coords[0], 0.0, xy_max)
+    Y = np.clip(las.y - min_coords[1], 0.0, xy_max)
     Z = las.z - min_coords[2]
 
-    return np.c_[X, Y, Z, las.intensity, las.user_data]
+    try:
+        return np.c_[X, Y, Z, las.intensity, las.label]
+    except:
+        return np.c_[X, Y, Z, las.intensity, las.user_data]
 
-def load_las_directory(dirpath):
+def load_las_directory(dirpath, xy_max=40):
     '''
     dirpath - a pathlib Path to a directory of .las files, relative to
     DATA_DIR
@@ -53,7 +56,7 @@ def load_las_directory(dirpath):
 
         #print(filename)
 
-        data = las_to_matrix(dirpath / filename)
+        data = las_to_matrix(dirpath / filename, xy_max=xy_max)
         
         filename = Path(filename).stem
 
