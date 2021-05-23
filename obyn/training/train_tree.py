@@ -286,17 +286,16 @@ def train(data_category='data_neon', force_reload=False):
         for epoch in range(1, TRAINING_EPOCHES+1):
             printout(flog, '\n>>> Training epoch %d/%d ...' % (epoch, TRAINING_EPOCHES))
             epoch_train_loss = train_one_epoch(epoch)
+
+            cp_filename = saver.save(sess,
+                                     os.path.join('.', 'epoch_' + str(epoch) + '.ckpt'))
+            printout(flog, 'Successfully store the checkpoint model into ' + cp_filename)
+
             epoch_valid_loss = validate()
             train_loss.append(epoch_train_loss)
             valid_loss.append(epoch_valid_loss)
             print("Training Loss: {}, Validation Loss: {}".format(epoch_train_loss, epoch_valid_loss))
             flog.flush()
-
-            '''
-            cp_filename = saver.save(sess,
-                                     os.path.join(MODEL_STORAGE_PATH, 'epoch_' + str(epoch + 1) + '.ckpt'))
-            printout(flog, 'Successfully store the checkpoint model into ' + cp_filename)
-            '''
 
         # Plot training/valid loss
         plt.figure()

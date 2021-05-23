@@ -1,18 +1,20 @@
-from obyn.utils.read_data import Data
-import numpy as np
-import obyn.utils.visualization.show3d_balls as viz
-import random
+import obyn.training.viz_predict_tree as v
+from obyn.utils import read_data
 
-d = Data(category='data_neon')
-assert len(d.lidar) == len(d.labels)
+if __name__ == '__main__':
+    # Note: make sure to force reload whenever changing data size
 
-point = d.lidar[108]
-labels = point[:,4]
-unique_labels = np.unique(labels)
-num_labels = len(unique_labels)
-print("{} Trees in this image".format(num_labels-1))
+    # Note: RUN compile_render_balls_so.sh in obyn/utils/visualiztion
+    # to compile the render_balls_so.so file
 
-color_map = {k: np.random.rand(3) for k in unique_labels}
-c_gt = np.array([color_map[k] for k in labels])
+    data = read_data.LidarData(category='data_neon', force_reload=False)
+    X = data.x[1:5]
+    Y = data.y[1:5]
 
-viz.showpoints(point[:,:3], c_gt=c_gt, ballradius=3)
+    assert len(X) == len(Y)
+
+    print("Predicting on {} points".format(len(X)))
+    print("Each one will open its own visualiztion window")
+    print("Press P to see colors, Press Q to move on to next")
+
+    v.predict(X, Y, model_path="./epoch_2.ckpt")
