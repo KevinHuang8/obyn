@@ -7,6 +7,7 @@ from ..models import model
 from ..utils import read_data as read_data
 import matplotlib.pyplot as plt
 from ..utils import constants as C
+from ..utils.test_utils import BlockMerging, GroupMerging, obtain_rank
 from tqdm import tqdm
 
 gpu_number = 0 # GPU number to use
@@ -58,6 +59,7 @@ def train(data_category='data_neon', force_reload=False):
             # pts_group_mask_ph: NxPOINT_NUM tensor of instance segmentation mask
             pointclouds_ph, ptsseglabel_ph, ptsgroup_label_ph, pts_seglabel_mask_ph, pts_group_mask_ph, alpha_ph = \
                 model.placeholder_inputs(BATCH_SIZE, POINT_NUM, NUM_GROUPS, NUM_CATEGORY)
+            group_mat_label = tf.matmul(ptsgroup_label_ph, tf.transpose(ptsgroup_label_ph, perm=[0, 2, 1]))
 
             is_training_ph = tf.placeholder(tf.bool, shape=())
 
@@ -109,8 +111,8 @@ def train(data_category='data_neon', force_reload=False):
         all_seg = np.where(all_group > 0, 1, 0) # Segmentation results NxPOINT_NUM: 0 for ground, 1 for tree
 
         # Train/Validation Split
-        idx = np.arange(all_data.shape[0])
-        validation_percentage = 0.0
+        idx = np.arange(int(all_data.shape[0]/10))
+        validation_percentage = 0.3
         np.random.shuffle(idx)
         cutoff_idx = int(len(idx) * validation_percentage)
         train_idx = idx[cutoff_idx:]
@@ -180,61 +182,84 @@ def train(data_category='data_neon', force_reload=False):
             diff_train = total_diff/num_batch_train
             pos_train = total_pos/num_batch_train
 
-            '''
-            # Evaluate validation error
-            total_loss = 0.0
-            total_grouperr = 0.0
-            total_same = 0.0
-            total_diff = 0.0
-            total_pos = 0.0
-            same_cnt0 = 0
+            return loss_train
 
-            for j in tqdm(range(num_batch_valid)):
+        def validate():
+            is_training = False
+            num_data = valid_data.shape[0]
+            ths = np.zeros(NUM_CATEGORY)
+            ths_ = np.zeros(NUM_CATEGORY)
+            cnt = np.zeros(NUM_CATEGORY)
+
+            pixel_accuracies = []
+
+            for j in range(num_batch_valid):
                 begidx = j * BATCH_SIZE
                 endidx = (j + 1) * BATCH_SIZE
 
-                # Convert the ground-truth labels to one-hot encode
-                pts_label_one_hot, pts_label_mask = model.convert_seg_to_one_hot(valid_seg[begidx: endidx])
-                pts_group_label, pts_group_mask = model.convert_groupandcate_to_one_hot(valid_group[begidx: endidx])
+                pts = valid_data[begidx:endidx]
+                seg = valid_seg[begidx:endidx]
+                group = valid_group[begidx:endidx]
+
+                pts_label_one_hot, pts_label_mask = model.convert_seg_to_one_hot(seg)
+                pts_group_label, _ = model.convert_groupandcate_to_one_hot(group)
 
                 feed_dict = {
-                    pointclouds_ph: valid_data[begidx: endidx, ...],
+                    pointclouds_ph: pts,
                     ptsseglabel_ph: pts_label_one_hot,
                     ptsgroup_label_ph: pts_group_label,
-                    pts_seglabel_mask_ph: pts_label_mask,
-                    pts_group_mask_ph: pts_group_mask,
                     is_training_ph: is_training,
-                    alpha_ph: min(10., (float(epoch_num-1) / 5.) * 2. + 2.),
                 }
-                _, loss_val, simmat_val, grouperr_val, same_val, same_cnt_val, diff_val, diff_cnt_val, pos_val, pos_cnt_val = sess.run([train_op, loss, net_output['simmat'], grouperr, same, same_cnt, diff, diff_cnt, pos, pos_cnt], feed_dict=feed_dict)
-                total_loss += loss_val
-                total_grouperr += grouperr_val
-                total_diff += (diff_val / diff_cnt_val)
-                if same_cnt_val > 0:
-                    total_same += same_val / same_cnt_val
-                    same_cnt0 += 1
-                total_pos += pos_val / pos_cnt_val
 
-            # Return valid loss values per epoch
-            loss_valid = total_loss/num_batch_valid
-            grouperr_valid = total_grouperr/num_batch_valid
-            same_valid = total_same/same_cnt0
-            diff_valid = total_diff/num_batch_valid
-            pos_valid = total_pos/num_batch_valid
-            '''
+                pts_corr_val0, pred_confidence_val0, ptsclassification_val0, pts_corr_label_val0 = \
+                    sess.run([net_output['simmat'],
+                              net_output['conf'],
+                              net_output['semseg'],
+                              group_mat_label], # group_mat_label is the similarity matrix of the ground truth
+                              feed_dict=feed_dict)
 
-            return loss_train, 0
+                #print(pts_corr_val0.shape, pred_confidence_val0.shape, ptsclassification_val0.shape, pts_corr_label_val0.shape)
 
+                # Iterate over batch
+                for i in range(BATCH_SIZE):
+                    # Set range of volume of 3D image
+                    # TODO: May need to round and standardize ranges to make this easier to manage
+                    gap = 0.1
+                    volume_num = int(50 / gap)
+                    volume = -1* np.ones([volume_num,volume_num,volume_num]).astype(np.int32)
+                    volume_seg = -1* np.ones([volume_num,volume_num,volume_num, NUM_CATEGORY]).astype(np.int32)
+
+                    pts_corr_val = np.squeeze(pts_corr_val0[i])
+                    pred_confidence_val = np.squeeze(pred_confidence_val0[i])
+                    ptsclassification_val = np.argmax(np.squeeze(ptsclassification_val0[i]),axis=1)
+                    #print(pts_corr_val.shape, seg[i].shape, group[i].shape, ths.shape, ths_.shape, cnt.shape)
+
+                    # Get Ths
+                    #hs, ths_, cnt = Get_Ths(pts_corr_val, seg[i], group[i], ths, ths_, cnt)
+                    #print (ths/cnt)
+
+                    # Make Prediction
+                    groupids_block, refineseg, group_seg = GroupMerging(pts_corr_val, pred_confidence_val, ptsclassification_val, np.ones(POINT_NUM)*1.0)
+                    groupids = BlockMerging(volume, volume_seg, pts[i], groupids_block.astype(np.int32), group_seg, gap)
+                    # Change labels to match rank
+                    groupids = np.array(obtain_rank(groupids))
+
+                    #print(np.unique(groupids))
+                    #print(np.unique(group[i]))
+                    pixel_acc = np.sum(groupids == group[i])/POINT_NUM
+                    pixel_accuracies.append(pixel_acc)
+
+            return np.mean(pixel_accuracies)
 
         train_loss = []
         valid_loss = []
         for epoch in range(1, TRAINING_EPOCHES+1):
             printout(flog, '\n>>> Training epoch %d/%d ...' % (epoch, TRAINING_EPOCHES))
-
-            epoch_train_loss, epoch_valid_loss = train_one_epoch(epoch)
+            epoch_train_loss = train_one_epoch(epoch)
+            epoch_valid_loss = validate()
             train_loss.append(epoch_train_loss)
             valid_loss.append(epoch_valid_loss)
-            print("Training Loss: {}, Validation Loss: {}".format(epoch_train_loss, epoch_valid_loss))
+            print("Training Loss: {}, Validation Pixel Accuracy: {}".format(epoch_train_loss, epoch_valid_loss))
             flog.flush()
 
             '''
@@ -244,12 +269,22 @@ def train(data_category='data_neon', force_reload=False):
             '''
 
         # Plot training loss
+        plt.figure()
         plt.plot(train_loss)
-        plt.plot(valid_loss)
-        plt.title('model loss')
+        plt.title('Training loss')
         plt.ylabel('loss')
         plt.xlabel('epoch')
-        plt.legend(['train', 'validation'], loc='upper left')
+        plt.savefig('training_loss.png')
+
+        # Plot valid loss
+        plt.figure()
+        plt.plot(valid_loss)
+        plt.title('Validation Pixel Accuracy')
+        plt.ylabel('loss')
+        plt.xlabel('epoch')
+        plt.savefig('validation_loss.png')
+
+        #plt.legend(['train', 'validation'], loc='upper left')
         plt.show()
 
         flog.close()
