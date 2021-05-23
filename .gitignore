@@ -20,3 +20,6 @@ data/NeonTrees
 data/data_idtrees_lidar
 train/
 log.txt
+*.png
+data_augmentation.ipynb
+data/

@@ -11,5 +11,5 @@ NONZERO_POINT_THRESHOLD = 50
 NUM_GROUPS = 230 # Maximum number of instances (trees) in a point cloud
 
 # Training parameters
-BATCH_SIZE = 16
+BATCH_SIZE = 32
 TRAINING_EPOCHES = 20

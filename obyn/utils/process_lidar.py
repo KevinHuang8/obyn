@@ -96,7 +96,7 @@ def downsample_voxel_match_size(points, n, grid_start=0.5, step_size=0.25):
         
     return down_pts
 
-def sync_size(lidar_data, n=1024):
+def sync_size(lidar_data, n=1024, optimal_voxel=True):
     '''
     Given a list of lidar point clouds 'lidar_data', return a numpy array
     of lidar point clouds such that all the clouds have the same number of
@@ -119,8 +119,10 @@ def sync_size(lidar_data, n=1024):
             # First, use a voxel grid filter to remove some of the nonzero points
             # use downsample_voxel_match_size for more data retained, but is
             # slower.
-            # down_pts = downsample_voxel_grid(points, 1)
-            down_pts = downsample_voxel_match_size(nonzero_pts, n)
+            if optimal_voxel:
+                down_pts = downsample_voxel_match_size(nonzero_pts, n)
+            else:
+                down_pts = downsample_voxel_grid(points, 1)
             
             # If we still have excess points, we need to remove exactly enough
             # to get to n points. (Note, this should never happen when using
@@ -201,7 +203,8 @@ def create_group_matrix(data, n=1024):
     labels = np.array(labels)
     return labels
 
-def process_lidar(lidar_data, split=True, n=None, threshold=None):
+def process_lidar(lidar_data, split=True, n=None, threshold=None,
+    optimal_voxel=True):
     '''
     Fully calls the pipeline for loading the lidar data.
 
@@ -225,7 +228,7 @@ def process_lidar(lidar_data, split=True, n=None, threshold=None):
     # Whether to split lidar into quadrants (do it for neon)
     if split:
         lidar_data = quad_points(lidar_data, threshold)
-    synced = sync_size(lidar_data, n)
+    synced = sync_size(lidar_data, n, optimal_voxel=optimal_voxel)
     #labels = create_group_matrix(synced, n)
     labels = synced[:,:,4]
     return synced[:, :, :3], labels

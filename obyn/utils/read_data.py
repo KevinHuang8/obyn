@@ -32,7 +32,7 @@ class Data:
     DATA_LOCATION_NEON = DATA_DIR / 'data_neon'
     DATA_LOCATION_IDTREES = DATA_DIR / 'data_idtrees'
 
-    def __init__(self, category='all', force_reload=False):
+    def __init__(self, category='data_neon', force_reload=False):
         '''
         'category' specifies which dataset to load.
             - 'data_neon' loads the Neon Trees Evaluation dataset
@@ -198,22 +198,58 @@ class Data:
 class LidarData(Data):
     DATA_LOCATION_NEON_LIDAR = DATA_DIR / 'data_neon_lidar'
     DATA_LOCATION_IDTREES_LIDAR = DATA_DIR / 'data_idtrees_lidar'
+    DATA_LOCATION_NEON_LIDAR_NONLABEL = DATA_DIR / 'data_neon_lidar_nonlabel'
+
+    def __init__(self, category='data_neon', force_reload=False,
+        keep_nonlabeled=False):
+        '''
+        'category' specifies which dataset to load.
+            - 'data_neon' loads the Neon Trees Evaluation dataset
+            - 'data_idtrees' loads the IDTrees dataset
+            - 'all' loads both (but note that images will be of different sizes)
+
+        'force_reload' forces a generation of the serialized dataset from 
+        scratch. Can take a while.
+
+        'keep_nonlableled' - whether to save lidar images that do not have
+        any labels. Note if you change this, you have to force_reload the data
+        to get the changes.
+        '''
+        self.keep_nonlabeled = keep_nonlabeled
+        if category != 'data_neon':
+            raise ValueError('Only "data_neon" has correctly labeled data.')
+        super().__init__(category=category, force_reload=force_reload)
 
     def _load_neon(self):
-        if not self.force_reload and LidarData.DATA_LOCATION_NEON_LIDAR.is_file():
-            # load from file
-            with open(LidarData.DATA_LOCATION_NEON_LIDAR, 'rb') as f:
-                data_obj = pickle.load(f)
-            self.lidar = data_obj.lidar
-            self.lidar_filenames = data_obj.lidar_filenames
-            self.x = data_obj.x
-            self.y = data_obj.y
-            return
+        if self.keep_nonlabeled:
+            if not self.force_reload and LidarData.DATA_LOCATION_NEON_LIDAR_NONLABEL.is_file():
+                # load from file
+                with open(LidarData.DATA_LOCATION_NEON_LIDAR_NONLABEL, 'rb') as f:
+                    data_obj = pickle.load(f)
+                self.lidar = data_obj.lidar
+                self.lidar_filenames = data_obj.lidar_filenames
+                self.x = data_obj.x
+                self.y = data_obj.y
+
+                self.non_labeled_clouds = data_obj.non_labeled_clouds
+                self.x_nonlabel = data_obj.x_nonlabel
+                self.y_nonlabel = data_obj.y_nonlabel
+                return
+        else:
+            if not self.force_reload and LidarData.DATA_LOCATION_NEON_LIDAR.is_file():
+                # load from file
+                with open(LidarData.DATA_LOCATION_NEON_LIDAR, 'rb') as f:
+                    data_obj = pickle.load(f)
+                self.lidar = data_obj.lidar
+                self.lidar_filenames = data_obj.lidar_filenames
+                self.x = data_obj.x
+                self.y = data_obj.y
 
         # Create file from raw data
         image_dir = NEON_DIR_RAW / 'evaluation'
         lidar_dict = load_las_directory(image_dir / 'LiDAR')
 
+        self.non_labeled_clouds = []
         self.lidar_filenames = []
 
         for filename in lidar_dict:
@@ -223,16 +259,25 @@ class LidarData(Data):
             try:
                 las.label
             except:
+                if self.keep_nonlabeled:
+                    self.non_labeled_clouds.append(lidar_dict[filename])
                 continue
 
             self.lidar.append(lidar_dict[filename])
             self.lidar_filenames.append(filename)
 
         self.x, self.y = process_lidar(self.lidar)
+        if self.keep_nonlabeled:
+            self.x_nonlabel, self.y_nonlabel = process_lidar(
+                self.non_labeled_clouds, optimal_voxel=False)
 
         # Save to file
-        with open(LidarData.DATA_LOCATION_NEON_LIDAR, 'wb+') as f:
-            pickle.dump(self, f)
+        if self.keep_nonlabeled:
+            with open(LidarData.DATA_LOCATION_NEON_LIDAR_NONLABEL, 'wb+') as f:
+                pickle.dump(self, f)
+        else:
+            with open(LidarData.DATA_LOCATION_NEON_LIDAR, 'wb+') as f:
+                pickle.dump(self, f)
 
     def _load_idtrees(self):
         if not self.force_reload and LidarData.DATA_LOCATION_IDTREES_LIDAR.is_file():
