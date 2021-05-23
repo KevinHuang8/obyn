@@ -111,8 +111,8 @@ def train(data_category='data_neon', force_reload=False):
         all_seg = np.where(all_group > 0, 1, 0) # Segmentation results NxPOINT_NUM: 0 for ground, 1 for tree
 
         # Train/Validation Split
-        idx = np.arange(int(all_data.shape[0]/10))
-        validation_percentage = 0.3
+        idx = np.arange(all_data.shape[0])
+        validation_percentage = 0.15
         np.random.shuffle(idx)
         cutoff_idx = int(len(idx) * validation_percentage)
         train_idx = idx[cutoff_idx:]
@@ -161,7 +161,7 @@ def train(data_category='data_neon', force_reload=False):
                     pts_seglabel_mask_ph: pts_label_mask,
                     pts_group_mask_ph: pts_group_mask,
                     is_training_ph: is_training,
-                    alpha_ph: min(10., (float(epoch_num-1) / 5.) * 2. + 2.),
+                    alpha_ph: 10.,
                 }
 
                 _, loss_val, simmat_val, grouperr_val, same_val, same_cnt_val, diff_val, diff_cnt_val, pos_val, pos_cnt_val = sess.run([train_op, loss, net_output['simmat'], grouperr, same, same_cnt, diff, diff_cnt, pos, pos_cnt], feed_dict=feed_dict)
@@ -187,6 +187,34 @@ def train(data_category='data_neon', force_reload=False):
         def validate():
             is_training = False
             num_data = valid_data.shape[0]
+            total_loss = 0
+
+            for j in range(num_batch_valid):
+                begidx = j * BATCH_SIZE
+                endidx = (j + 1) * BATCH_SIZE
+
+                pts = valid_data[begidx:endidx]
+                seg = valid_seg[begidx:endidx]
+                group = valid_group[begidx:endidx]
+
+                pts_label_one_hot, pts_label_mask = model.convert_seg_to_one_hot(seg)
+                pts_group_label, pts_group_mask = model.convert_groupandcate_to_one_hot(group)
+
+                feed_dict = {
+                    pointclouds_ph: pts,
+                    is_training_ph: is_training,
+                    ptsseglabel_ph: pts_label_one_hot,
+                    ptsgroup_label_ph: pts_group_label,
+                    pts_seglabel_mask_ph: pts_label_mask,
+                    pts_group_mask_ph: pts_group_mask,
+                    alpha_ph: 10.
+                }
+
+                loss_val = sess.run(loss, feed_dict=feed_dict)
+                total_loss += (loss_val/num_batch_valid)
+
+            return total_loss
+            '''
             ths = np.zeros(NUM_CATEGORY)
             ths_ = np.zeros(NUM_CATEGORY)
             cnt = np.zeros(NUM_CATEGORY)
@@ -246,10 +274,12 @@ def train(data_category='data_neon', force_reload=False):
 
                     #print(np.unique(groupids))
                     #print(np.unique(group[i]))
-                    pixel_acc = np.sum(groupids == group[i])/POINT_NUM
+                    pixel_acc = np.sum(obtain_rank(groupids) == obtain_rank(group[i]))/POINT_NUM
                     pixel_accuracies.append(pixel_acc)
 
             return np.mean(pixel_accuracies)
+            '''
+
 
         train_loss = []
         valid_loss = []
@@ -259,7 +289,7 @@ def train(data_category='data_neon', force_reload=False):
             epoch_valid_loss = validate()
             train_loss.append(epoch_train_loss)
             valid_loss.append(epoch_valid_loss)
-            print("Training Loss: {}, Validation Pixel Accuracy: {}".format(epoch_train_loss, epoch_valid_loss))
+            print("Training Loss: {}, Validation Loss: {}".format(epoch_train_loss, epoch_valid_loss))
             flog.flush()
 
             '''
@@ -268,23 +298,15 @@ def train(data_category='data_neon', force_reload=False):
             printout(flog, 'Successfully store the checkpoint model into ' + cp_filename)
             '''
 
-        # Plot training loss
+        # Plot training/valid loss
         plt.figure()
         plt.plot(train_loss)
-        plt.title('Training loss')
-        plt.ylabel('loss')
-        plt.xlabel('epoch')
-        plt.savefig('training_loss.png')
-
-        # Plot valid loss
-        plt.figure()
         plt.plot(valid_loss)
-        plt.title('Validation Pixel Accuracy')
+        plt.title('Model loss')
         plt.ylabel('loss')
         plt.xlabel('epoch')
-        plt.savefig('validation_loss.png')
-
-        #plt.legend(['train', 'validation'], loc='upper left')
+        plt.legend(['train', 'validation'], loc='upper left')
+        plt.savefig('loss.png')
         plt.show()
 
         flog.close()
