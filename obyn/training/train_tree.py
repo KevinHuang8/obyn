@@ -36,7 +36,7 @@ def printout(flog, data):
     print(data)
     flog.write(data + '\n')
 
-def train(data_category='data_neon', force_reload=False):
+def train(data_category='data_neon', force_reload=False, artificial_labels=False):
     with tf.Graph().as_default():
         with tf.device('/gpu:' + str(gpu_number)):
             batch = tf.Variable(0, trainable=False, name='batch')
@@ -105,9 +105,17 @@ def train(data_category='data_neon', force_reload=False):
         flog = open('log.txt', 'w')
 
         # Load all data into memory
-        data = read_data.LidarData(category=data_category, force_reload=force_reload)
-        all_data = data.x # Lidar points NxPOINT_NUMx3
-        all_group = data.y # Group/instance labels NxPOINT_NUM, will be one-hot encoded later
+        #data = read_data.LidarData(category=data_category, force_reload=force_reload)
+        if artificial_labels:
+            data = read_data.LidarDataArtificial(category=data_category, force_reload=force_reload,
+                skip=C.ARTIFICIAL_LABEL_SKIP)
+            x, y = data.get_combined()
+            all_data = x # Lidar points NxPOINT_NUMx3
+            all_group = y # Group/instance labels NxPOINT_NUM, will be one-hot encoded later
+        else:
+            data = read_data.LidarData(category=data_category, force_reload=force_reload)
+            all_data = data.x
+            all_group = data.y
         all_seg = np.where(all_group > 0, 1, 0) # Segmentation results NxPOINT_NUM: 0 for ground, 1 for tree
 
         # Train/Validation Split
