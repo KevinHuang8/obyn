@@ -26,3 +26,4 @@ data/
 obyn/training/checkpoints/*
 
 !obyn/training/checkpoints/checkpoint
+
