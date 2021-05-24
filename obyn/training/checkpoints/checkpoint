@@ -1,0 +1,6 @@
+model_checkpoint_path: "c:\\Users\\kehua\\Documents\\Caltech\\CS 148\\obyn\\obyn\\training\\checkpoints\\epoch_20.ckpt"
+all_model_checkpoint_paths: "c:\\Users\\kehua\\Documents\\Caltech\\CS 148\\obyn\\obyn\\training\\checkpoints\\epoch_16.ckpt"
+all_model_checkpoint_paths: "c:\\Users\\kehua\\Documents\\Caltech\\CS 148\\obyn\\obyn\\training\\checkpoints\\epoch_17.ckpt"
+all_model_checkpoint_paths: "c:\\Users\\kehua\\Documents\\Caltech\\CS 148\\obyn\\obyn\\training\\checkpoints\\epoch_18.ckpt"
+all_model_checkpoint_paths: "c:\\Users\\kehua\\Documents\\Caltech\\CS 148\\obyn\\obyn\\training\\checkpoints\\epoch_19.ckpt"
+all_model_checkpoint_paths: "c:\\Users\\kehua\\Documents\\Caltech\\CS 148\\obyn\\obyn\\training\\checkpoints\\epoch_20.ckpt"

@@ -223,6 +223,7 @@ class LidarData(Data):
             self.lidar_filenames = data_obj.lidar_filenames
             self.x = data_obj.x
             self.y = data_obj.y
+            return
 
         # Create file from raw data
         image_dir = NEON_DIR_RAW / 'evaluation'
@@ -285,7 +286,7 @@ class LidarData(Data):
         self.lidar.extend(neon_lidar)
 
 class LidarDataArtificial(LidarData):
-    DATA_LOCATION_NEON_LIDAR_NONLABEL = DATA_DIR / 'data_neon_lidar_nonlabel'
+    DATA_LOCATION_NEON_LIDAR_NONLABEL = DATA_DIR / 'data_neon_lidar_artificial'
 
     def __init__(self, category='data_neon', force_reload=False, skip=1):
         '''
