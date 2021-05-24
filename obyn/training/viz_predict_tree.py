@@ -7,7 +7,7 @@ from ..models import model
 from ..utils import read_data as read_data
 import matplotlib.pyplot as plt
 from ..utils import constants as C
-from ..utils.test_utils import BlockMerging, GroupMerging, obtain_rank
+from ..utils.test_utils import BlockMerging, GroupMerging, obtain_rank, Get_Ths
 from tqdm import tqdm
 from ..utils.visualization import show3d_balls as viz
 
@@ -81,19 +81,31 @@ def predict(X, y, model_path):
                 pred_confidence_val = np.squeeze(pred_confidence_val0)
                 ptsclassification_val = np.argmax(np.squeeze(ptsclassification_val0),axis=1)
 
+                #print(pts_corr_val.shape, pred_confidence_val.shape, ptsclassification_val.shape)
+
                 # Make Prediction
-                groupids_block, refineseg, group_seg = GroupMerging(pts_corr_val, pred_confidence_val, ptsclassification_val, np.ones(POINT_NUM)*1.0)
-                groupids = BlockMerging(volume, volume_seg, np.squeeze(point_cloud), groupids_block.astype(np.int32), group_seg, gap)
-                groupids = obtain_rank(groupids_block)
                 gt_group = obtain_rank(all_group[i])
+                ths = np.zeros(NUM_CATEGORY)
+                ths_ = np.zeros(NUM_CATEGORY)
+                cnt = np.zeros(NUM_CATEGORY)
+                ths, ths_, cnt = Get_Ths(pts_corr_val, all_seg[i], gt_group, ths, ths_, cnt)
+                bin_label = [ths[i]/cnt[i] if cnt[i] != 0 else 0.2 for i in range(len(cnt))]
+
+                groupids_block, refineseg, group_seg = GroupMerging(pts_corr_val, pred_confidence_val, ptsclassification_val, bin_label)
+                #groupids = BlockMerging(volume, volume_seg, np.squeeze(point_cloud), groupids_block.astype(np.int32), group_seg, gap)
+                groupids = obtain_rank(groupids_block)
+
 
                 unique_pred_labels = np.unique(groupids)
-                #unique_gt_labels = np.unique(gt_group)
-                #num_labels = max(len(unique_pred_labels), len(unique_gt_labels))
-                num_labels = len(unique_pred_labels)
-                print("{} Trees in this image".format(num_labels-1))
+                unique_true_labels = np.unique(gt_group)
+                num_pred_labels = len(unique_pred_labels)
+                num_true_labels = len(unique_true_labels)
+                print("Predicted {} Trees in this image".format(num_pred_labels-1))
+                print("Acutally {} Trees in this image".format(num_true_labels-1))
 
-                color_map = {k: np.random.rand(3) for k in range(num_labels)}
-                c_p = np.array([color_map[k] for k in groupids])
+                color_map_p = {k: np.random.rand(3) for k in range(num_pred_labels)}
+                color_map_gt = {k: np.random.rand(3) for k in range(num_true_labels)}
+                c_p = np.array([color_map_p[k] for k in groupids])
+                c_gt = np.array([color_map_gt[k] for k in gt_group])
 
-                viz.showpoints(np.squeeze(point_cloud), c_gt=c_p, ballradius=3)
+                viz.showpoints(np.squeeze(point_cloud), c_gt=c_gt, c_pred=c_p, ballradius=3)

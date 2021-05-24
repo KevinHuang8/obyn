@@ -98,13 +98,20 @@ def Get_Ths(pts_corr, seg, ins, ths, ths_, cnt):
 ##############################
 
 def GroupMerging(pts_corr, confidence, seg, label_bin):
+    CONF_THRESH = 0.1
+    MIN_POINTS_IN_GROUP_PROPOSAL = 10
 
-    confvalidpts = (confidence>0.4)
+    # Filters points based on confidence level
+    confvalidpts = (confidence>CONF_THRESH)
+
+    # Number of unique segementation classes
     un_seg = np.unique(seg)
     refineseg = -1* np.ones(pts_corr.shape[0])
     groupid = -1* np.ones(pts_corr.shape[0])
     numgroups = 0
     groupseg = {}
+
+    # Iterate over each segmentation class
     for i_seg in un_seg:
         if i_seg==-1:
             continue
@@ -132,17 +139,24 @@ def GroupMerging(pts_corr, confidence, seg, label_bin):
 
             if len(proposals) == 0:
                 proposals += [pts_in_seg]
+
+        print("Group Merging has found {} potential proposals for Segmentation class {}".format(len(proposals), i_seg))
         for gp in range(len(proposals)):
-            if np.sum(proposals[gp])>50:
+            print("Group Proposal {} for class {} has {} points".format(gp, i_seg ,np.sum(proposals[gp])))
+            if np.sum(proposals[gp])>MIN_POINTS_IN_GROUP_PROPOSAL:
                 groupid[proposals[gp]] = numgroups
                 groupseg[numgroups] = i_seg
                 numgroups += 1
                 refineseg[proposals[gp]] = stats.mode(seg[proposals[gp]])[0]
 
+    #return groupid, refineseg, groupseg
+
+    '''
     un, cnt = np.unique(groupid, return_counts=True)
     for ig, g in enumerate(un):
-        if cnt[ig] < 50:
+        if cnt[ig] < MIN_POINTS_IN_GROUP_PROPOSAL:
             groupid[groupid==g] = -1
+    '''
 
     un, cnt = np.unique(groupid, return_counts=True)
     groupidnew = groupid.copy()
