@@ -105,10 +105,10 @@ def train(data_category='data_neon', force_reload=False, artificial_labels=False
         flog = open('log.txt', 'w')
 
         # Load all data into memory
-        #data = read_data.LidarData(category=data_category, force_reload=force_reload)
         if artificial_labels:
             data = read_data.LidarDataArtificial(category=data_category, force_reload=force_reload,
                 skip=C.ARTIFICIAL_LABEL_SKIP)
+            real_len = data.x.shape[0]
             x, y = data.get_combined()
             all_data = x # Lidar points NxPOINT_NUMx3
             all_group = y # Group/instance labels NxPOINT_NUM, will be one-hot encoded later
@@ -119,12 +119,25 @@ def train(data_category='data_neon', force_reload=False, artificial_labels=False
         all_seg = np.where(all_group > 0, 1, 0) # Segmentation results NxPOINT_NUM: 0 for ground, 1 for tree
 
         # Train/Validation Split
-        idx = np.arange(all_data.shape[0])
-        validation_percentage = 0.15
-        np.random.shuffle(idx)
-        cutoff_idx = int(len(idx) * validation_percentage)
-        train_idx = idx[cutoff_idx:]
-        valid_idx = idx[:cutoff_idx]
+        # Don't include data augmentation in validation data
+        if artificial_labels:
+            real_idx = np.arange(real_len)
+            np.random.shuffle(real_idx)
+            cutoff_idx = int(len(real_idx) * C.VALIDATION_SIZE)
+            train_idx = real_idx[cutoff_idx:]
+            valid_idx = real_idx[:cutoff_idx]
+
+            idx = np.arange(real_len, all_data.shape[0])
+            np.random.shuffle(idx)
+
+            train_idx = np.r_[train_idx, idx]
+        else:
+            idx = np.arange(all_data.shape[0])
+            validation_percentage = C.VALIDATION_SIZE
+            np.random.shuffle(idx)
+            cutoff_idx = int(len(idx) * validation_percentage)
+            train_idx = idx[cutoff_idx:]
+            valid_idx = idx[:cutoff_idx]
 
         train_data = all_data[train_idx]
         train_group = all_group[train_idx]
@@ -295,8 +308,8 @@ def train(data_category='data_neon', force_reload=False, artificial_labels=False
             printout(flog, '\n>>> Training epoch %d/%d ...' % (epoch, TRAINING_EPOCHES))
             epoch_train_loss = train_one_epoch(epoch)
 
-            cp_filename = saver.save(sess,
-                                     os.path.join('.', 'epoch_' + str(epoch) + '.ckpt'))
+            cp_filename = saver.save(sess, 
+                str(C.CHECKPOINT_DIR / ('epoch_' + str(epoch) + '.ckpt')))
             printout(flog, 'Successfully store the checkpoint model into ' + cp_filename)
 
             epoch_valid_loss = validate()

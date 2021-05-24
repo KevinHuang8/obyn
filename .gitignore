@@ -23,3 +23,5 @@ log.txt
 *.png
 data_augmentation.ipynb
 data/
+checkpoint
+obyn/training/checkpoints/
