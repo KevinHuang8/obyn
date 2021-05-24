@@ -182,7 +182,7 @@ def train(data_category='data_neon', force_reload=False, artificial_labels=False
                     pts_seglabel_mask_ph: pts_label_mask,
                     pts_group_mask_ph: pts_group_mask,
                     is_training_ph: is_training,
-                    alpha_ph: 10.,
+                    alpha_ph: C.MIN_ALPHA,
                 }
 
                 _, loss_val, simmat_val, grouperr_val, same_val, same_cnt_val, diff_val, diff_cnt_val, pos_val, pos_cnt_val = sess.run([train_op, loss, net_output['simmat'], grouperr, same, same_cnt, diff, diff_cnt, pos, pos_cnt], feed_dict=feed_dict)
@@ -228,7 +228,7 @@ def train(data_category='data_neon', force_reload=False, artificial_labels=False
                     ptsgroup_label_ph: pts_group_label,
                     pts_seglabel_mask_ph: pts_label_mask,
                     pts_group_mask_ph: pts_group_mask,
-                    alpha_ph: 10.
+                    alpha_ph: C.MIN_ALPHA
                 }
 
                 loss_val = sess.run(loss, feed_dict=feed_dict)

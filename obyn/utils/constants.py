@@ -20,7 +20,7 @@ ARTIFICIAL_LABEL_SKIP = 10
 
 
 # Maximum number of instances (trees) in a point cloud
-NUM_GROUPS = 230 
+NUM_GROUPS = 100
 
 
 ## Training parameters ##
@@ -33,3 +33,5 @@ TRAINING_EPOCHES = 20
 VALIDATION_SIZE = 0.15
 
 CHECKPOINT_DIR = TRAINING_DIR / 'checkpoints'
+
+MIN_ALPHA = 100

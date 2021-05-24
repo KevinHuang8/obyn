@@ -84,7 +84,7 @@ def predict(X, y, model_path):
                 # Make Prediction
                 groupids_block, refineseg, group_seg = GroupMerging(pts_corr_val, pred_confidence_val, ptsclassification_val, np.ones(POINT_NUM)*1.0)
                 groupids = BlockMerging(volume, volume_seg, np.squeeze(point_cloud), groupids_block.astype(np.int32), group_seg, gap)
-                groupids = obtain_rank(groupids)
+                groupids = obtain_rank(groupids_block)
                 gt_group = obtain_rank(all_group[i])
 
                 unique_pred_labels = np.unique(groupids)

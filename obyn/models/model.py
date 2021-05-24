@@ -220,6 +220,7 @@ def get_loss(net_output, labels, alpha=10., margin=[1.,2.]):
     confidence_loss = tf.reduce_mean(tf.squared_difference(confidence_label, tf.squeeze(pred_confidence_logits,[2])))
 
     loss = simmat_loss + ptsseg_loss + confidence_loss
+    # loss = simmat_loss + confidence_loss
 
     grouperr = tf.abs(tf.cast(ng, tf.float32) - tf.cast(ng_label, tf.float32))
 
