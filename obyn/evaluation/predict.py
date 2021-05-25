@@ -41,7 +41,7 @@ def model_output(X, model_path):
                     NUM_CATEGORY)
 
             net_output = model.get_model(pointclouds_ph, is_training_ph, 
-                group_cate_num=NUM_CATEGORY)
+                group_cate_num=NUM_CATEGORY, bn_decay=C.BN_DECAY)
 
         # Add ops to save and restore all the variables.
         saver = tf.train.Saver()
@@ -90,36 +90,40 @@ def model_output(X, model_path):
     return model_outputs 
 
 
-def predict(model_outputs=None, confidence_threshold=C.DEFAULT_CONFIDENCE_THRESHOLD, 
-    X=None, model_path=None, y=None, reload_ths=False, use_outputs=True):
+def predict(name, model_outputs=None, confidence_threshold=C.DEFAULT_CONFIDENCE_THRESHOLD, 
+    X=None, y=None, reload_ths=False, use_outputs=True):
     '''
     Return model predictions.
+
+    'name' - name of the model (same as the name of the Ths file)
 
     Can either pass in 'model_outputs' and 'use_outputs=True', in which case
     the model_outputs are used to make predictions, 
     OR
-    pass in 'X', 'model_path', and 'use_outputs=False' to predictions on input 
-    point cloud X using model checkpoint saved at 'model_path'.
+    pass in 'X' and 'use_outputs=False' to predictions on input 
+    point cloud X using model 'name'.
 
     If Ths is not calculated yet, pass in gt labels 'y' to recalculate.
 
     'reload_ths' - whether to force reload ths. Note, 'y' needs to be provided
     to calculate Ths.
     '''
+    model_path = str(C.CHECKPOINT_DIR / (name + '.ckpt'))
+
     if use_outputs:
         if model_outputs is None:
             raise ValueError('Need to provide model outputs.')
     else:
-        if X is None or model_path is None:
-            raise ValueError('Need to provide X and model_path to compute outputs.')
+        if X is None:
+            raise ValueError('Need to provide X to compute outputs.')
         model_outputs = model_output(X, model_path)
 
-    if not reload_ths and C.THS_SAVE_FILE.is_file():
-        ths = np.load(C.THS_SAVE_FILE)
+    if not reload_ths and (C.THS_DIR / (name + '.npy')).is_file():
+        ths = np.load(C.THS_DIR / (name + '.npy'))
     else:
         if y is None:
             raise ValueError('Need to pass in labels to calculate ths.')
-        ths = calculate_ths(X, y, model_path)
+        ths = calculate_ths(X, y, model_path, name)
 
     predictions = []
     for output in tqdm(model_outputs):

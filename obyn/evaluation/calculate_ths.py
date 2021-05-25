@@ -23,9 +23,15 @@ BATCH_SIZE = 1
 NUM_GROUPS = C.NUM_GROUPS # Maximum number of instances (trees) in a point cloud
 NUM_CATEGORY = 2 # Number of different classes (tree, ground)
 
-THS_SAVE_FILE = C.THS_SAVE_FILE
+def calculate_ths(X, y, name):
+    '''
+    Calculates Ths by running the model saved at 'model_path' on X and y.
+    X and y should be training, not validation, data.
 
-def calculate_ths(X, y, model_path):
+    Saves Ths to a file with name 'name'.
+    '''
+    model_path = str(C.CHECKPOINT_DIR / (name + '.ckpt'))
+
     with tf.Graph().as_default():
         is_training = False
 
@@ -37,7 +43,7 @@ def calculate_ths(X, y, model_path):
                     NUM_CATEGORY)
 
             net_output = model.get_model(pointclouds_ph, is_training_ph, 
-                group_cate_num=NUM_CATEGORY)
+                group_cate_num=NUM_CATEGORY, bn_decay=C.BN_DECAY)
 
         # Add ops to save and restore all the variables.
         saver = tf.train.Saver()
@@ -86,7 +92,7 @@ def calculate_ths(X, y, model_path):
 
             ths = [ths[i]/cnt[i] if cnt[i] != 0 else 0.2 for i in range(len(cnt))]
 
-            np.save(THS_SAVE_FILE, ths)
+            np.save(C.THS_DIR / (name + '.npy'), ths)
 
     return ths
 

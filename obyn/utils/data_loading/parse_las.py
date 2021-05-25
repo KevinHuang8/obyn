@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+from tqdm import tqdm
 
 import laspy
 import numpy as np
@@ -48,7 +49,7 @@ def load_las_directory(dirpath, xy_max=40):
     directory = DATA_DIR / dirpath
 
     data_dict = {}
-    for filename in os.listdir(directory):
+    for filename in tqdm(os.listdir(directory)):
         #print('start', filename)
 
         if not filename.endswith('.las'):

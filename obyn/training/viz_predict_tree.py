@@ -40,7 +40,8 @@ def predict(X, y, model_path):
             pointclouds_ph, ptsseglabel_ph, ptsgroup_label_ph, _, _, _ = \
                 model.placeholder_inputs(BATCH_SIZE, POINT_NUM, NUM_GROUPS, NUM_CATEGORY)
 
-            net_output = model.get_model(pointclouds_ph, is_training_ph, group_cate_num=NUM_CATEGORY)
+            net_output = model.get_model(pointclouds_ph, is_training_ph, 
+                group_cate_num=NUM_CATEGORY, bn_decay=C.BN_DECAY)
 
         # Add ops to save and restore all the variables.
         saver = tf.train.Saver()

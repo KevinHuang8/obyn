@@ -2,17 +2,19 @@ import numpy as np
 from tqdm import tqdm
 from .predict import predict, model_output
 from . import metrics
+from .calculate_ths import calculate_ths
 from ..utils import constants as C
 
-def evaluate(X, y, model_path, iou_thresh=C.DEFAULT_IOU_THRESH, 
+def evaluate(X, y, name, iou_thresh=C.DEFAULT_IOU_THRESH, 
     num=C.NUM_ITER_PR_CURVE):
     '''
     Return average precision (AP) scores on validation data (X, y) using
-    model checkpoint saved at 'model_path'.
+    model 'name'.
 
     'num' is number of different confidence levels to test
     '''
 
+    model_path = str(C.CHECKPOINT_DIR / (name + '.ckpt'))
     model_outputs = model_output(X, model_path)
 
     confidences = []
@@ -26,7 +28,7 @@ def evaluate(X, y, model_path, iou_thresh=C.DEFAULT_IOU_THRESH,
     total_prec = 0
     for conf_thresh in np.linspace(min(confidences), max(confidences), num):
         print(f'Evaluating confidence threshold {conf_thresh}')
-        predictions = predict(model_outputs=model_outputs, 
+        predictions = predict(name, model_outputs=model_outputs, 
             confidence_threshold=conf_thresh, use_outputs=True)
 
         TP, FP, FN = 0, 0, 0

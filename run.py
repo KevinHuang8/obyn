@@ -2,17 +2,34 @@ import numpy as np
 import matplotlib.pyplot as plt
 import obyn.training.train_tree as t
 from obyn.evaluation.evaluate import evaluate
+from obyn.evaluation.calculate_ths import calculate_ths
 from obyn.utils import read_data
 from obyn.utils import constants as C
 
 if __name__ == '__main__':
-    # Note: make sure to force reload whenever changing data size
-    # t.train(data_category='data_neon', force_reload=False, artificial_labels=False)
+    data_name = 'standard'
+    model_name = 'model1'
 
-    data = read_data.LidarData()
+    # Training
+    data = read_data.LidarData(data_name, category='data_neon', force_reload=True)
+    t.train(data, model_name)
+    data.save_indices(model_name)
 
-    ap, prec, recall = evaluate(data.x, data.y, str(C.CHECKPOINT_DIR / 'epoch_20.ckpt'))
+    # After training, we can refer to the model by 'model_name'
+    # Note everything after here can be done separately from training.
+    data = read_data.LidarData(data_name)
+    train_idx, valid_idx = data.load_indices(model_name)
+
+    # Need to update Ths on the training data if not updated already
+    if not (C.THS_DIR / f'{model_name}.npy').is_file():
+        calculate_ths(data.x[train_idx], data.y[train_idx], model_name)
+
+    ap, prec, recall = evaluate(data.x[valid_idx], data.y[valid_idx], model_name)
 
     print(ap)
-    plt.plot(prec, recall)
-    plt.savefig('PR.png')
+    plt.figure()
+    plt.plot(recall, prec)
+    plt.xlabel('Recall')
+    plt.ylabel('Precision')
+    plt.title(f'PR Curve (AP: {ap})')
+    plt.savefig(C.FIGURES_DIR / f'PR_curve_{model_name}.png')

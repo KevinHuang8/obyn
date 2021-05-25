@@ -197,11 +197,10 @@ class Data:
         return new_images, new_labels
 
 class LidarData(Data):
-    DATA_LOCATION_NEON_LIDAR = DATA_DIR / 'data_neon_lidar'
-    DATA_LOCATION_IDTREES_LIDAR = DATA_DIR / 'data_idtrees_lidar'
-
-    def __init__(self, category='data_neon', force_reload=False):
+    def __init__(self, name, category='data_neon', force_reload=False):
         '''
+        'name' - the name of the model associated with this data
+
         'category' specifies which dataset to load.
             - 'data_neon' loads the Neon Trees Evaluation dataset
             - 'data_idtrees' loads the IDTrees dataset
@@ -212,12 +211,14 @@ class LidarData(Data):
         '''
         if category != 'data_neon':
             raise ValueError('Only "data_neon" has correctly labeled data.')
+        self.name = name
+        self.savefile = DATA_GENERATED_DIR / name
         super().__init__(category=category, force_reload=force_reload)
 
     def _load_neon(self):
-        if not self.force_reload and LidarData.DATA_LOCATION_NEON_LIDAR.is_file():
+        if not self.force_reload and self.savefile.is_file():
             # load from file
-            with open(LidarData.DATA_LOCATION_NEON_LIDAR, 'rb') as f:
+            with open(self.savefile, 'rb') as f:
                 data_obj = pickle.load(f)
             self.lidar = data_obj.lidar
             self.lidar_filenames = data_obj.lidar_filenames
@@ -225,6 +226,7 @@ class LidarData(Data):
             self.y = data_obj.y
             return
 
+        print('Reloading data...')
         # Create file from raw data
         image_dir = NEON_DIR_RAW / 'evaluation'
         lidar_dict = load_las_directory(image_dir / 'LiDAR')
@@ -246,13 +248,14 @@ class LidarData(Data):
         self.x, self.y = process_lidar(self.lidar)
 
         # Save to file
-        with open(LidarData.DATA_LOCATION_NEON_LIDAR, 'wb+') as f:
+        with open(self.savefile, 'wb+') as f:
+            print('Caching data...')
             pickle.dump(self, f)
 
     def _load_idtrees(self):
-        if not self.force_reload and LidarData.DATA_LOCATION_IDTREES_LIDAR.is_file():
+        if not self.force_reload and self.savefile.is_file():
             # load from file
-            with open(LidarData.DATA_LOCATION_IDTREES_LIDAR, 'rb') as f:
+            with open(self.savefile, 'rb') as f:
                 data_obj = pickle.load(f)
             self.lidar = data_obj.lidar
             self.x = data_obj.x
@@ -271,7 +274,7 @@ class LidarData(Data):
         self.x, self.y = process_lidar(self.lidar, split=False)
 
         # Save to file
-        with open(LidarData.DATA_LOCATION_IDTREES_LIDAR, 'wb+') as f:
+        with open(self.savefile, 'wb+') as f:
             pickle.dump(self, f)
 
     def _load_all(self):
@@ -285,8 +288,15 @@ class LidarData(Data):
         self.y = np.r_[y, self.y]
         self.lidar.extend(neon_lidar)
 
+    def get_x(self):
+        return self.x
+
+    def get_y(self):
+        return self.y
+
     def train_test_split(self, validation_size):
         idx = np.arange(self.x.shape[0])
+        np.random.shuffle(idx)
         cutoff_idx = int(idx.shape[0] * validation_size)
         train_idx = idx[cutoff_idx:]
         valid_idx = idx[:cutoff_idx]
@@ -296,23 +306,93 @@ class LidarData(Data):
         self.y_train = self.y[train_idx]
         self.y_valid = self.y[valid_idx]
 
-class LidarDataArtificial(LidarData):
-    DATA_LOCATION_NEON_LIDAR_NONLABEL = DATA_DIR / 'data_neon_lidar_artificial'
+        self.train_idx = train_idx
+        self.valid_idx = valid_idx
 
-    def __init__(self, category='data_neon', force_reload=False, skip=1):
+    def save_indices(self, name):
+        np.save(IDX_DIR / (name + '_train.npy'), self.valid_idx)
+        np.save(IDX_DIR / (name + '_test.npy'), self.train_idx)
+
+    def load_indices(self, name):
+        valid = np.load(IDX_DIR / (name + '_train.npy'))
+        train = np.load(IDX_DIR / (name + '_test.npy'))
+        return train, valid
+
+class LidarDataAugmented(LidarData):
+    def _load_neon(self):
+        if not self.force_reload and self.savefile.is_file():
+            # load from file
+            with open(self.savefile, 'rb') as f:
+                data_obj = pickle.load(f)
+            self.lidar = data_obj.lidar
+            self.lidar_filenames = data_obj.lidar_filenames
+            self.x = data_obj.x
+            self.y = data_obj.y
+
+            self.augment_size = data_obj.augment_size
+            return
+
+        print('Reloading data...')
+        # Create file from raw data
+        image_dir = NEON_DIR_RAW / 'evaluation'
+        lidar_dict = load_las_directory(image_dir / 'LiDAR')
+
+        self.lidar_filenames = []
+
+        for filename in lidar_dict:
+            las = laspy.file.File(image_dir / 'LiDAR' / (filename + '.las'), 
+                mode='r')
+            # las images without 'label' field do not have labels
+            try:
+                las.label
+            except:
+                continue
+
+            self.lidar.append(lidar_dict[filename])
+            self.lidar_filenames.append(filename)
+
+        self.x, self.y, self.augment_size = process_lidar(self.lidar, augment=True)
+
+        # Save to file
+        with open(self.savefile, 'wb+') as f:
+            print('Caching data...')
+            pickle.dump(self, f)
+
+    def train_test_split(self, validation_size):
+        real_size = self.x.shape[0] - self.augment_size
+        idx = np.arange(real_size)
+        np.random.shuffle(idx)
+        cutoff_idx = int(idx.shape[0] * validation_size)
+        train_idx = idx[cutoff_idx:]
+        valid_idx = idx[:cutoff_idx]
+
+        augment_idx = np.arange(real_size, self.x.shape[0])
+
+        train_idx = np.r_[train_idx, augment_idx]
+        np.random.shuffle(train_idx)
+
+        self.x_train = self.x[train_idx]
+        self.x_valid = self.x[valid_idx]
+        self.y_train = self.y[train_idx]
+        self.y_valid = self.y[valid_idx]
+
+        self.train_idx = train_idx
+        self.valid_idx = valid_idx 
+    
+
+class LidarDataArtificial(LidarData):
+    def __init__(self, name, category='data_neon', force_reload=False, skip=1):
         '''
         skip - take only every 'skip' samples from the nonlabled data
         (as there are ~6800 samples, which can take a long time to process)
         '''
         self.skip = skip
-        super().__init__(category=category, force_reload=force_reload)
+        super().__init__(name, category=category, force_reload=force_reload)
 
     def _load_neon(self):
-        if not self.force_reload and \
-            LidarDataArtificial.DATA_LOCATION_NEON_LIDAR_NONLABEL.is_file():
+        if not self.force_reload and self.savefile.is_file():
             # load from file
-            with open(LidarDataArtificial.DATA_LOCATION_NEON_LIDAR_NONLABEL, 
-                    'rb') as f:
+            with open(self.savefile, 'rb') as f:
                 data_obj = pickle.load(f)
             self.lidar = data_obj.lidar
             self.lidar_filenames = data_obj.lidar_filenames
@@ -323,6 +403,7 @@ class LidarDataArtificial(LidarData):
             self.y_artificial = data_obj.y_artificial
             return
 
+        print('Reloading data...')
         # Create file from raw data
         image_dir = NEON_DIR_RAW / 'evaluation'
         lidar_dict = load_las_directory(image_dir / 'LiDAR')
@@ -350,8 +431,8 @@ class LidarDataArtificial(LidarData):
             self.x_artificial, self.y_artificial)
 
         # Save to file
-        with open(LidarDataArtificial.DATA_LOCATION_NEON_LIDAR_NONLABEL, 
-                'wb+') as f:
+        with open(self.savefile, 'wb+') as f:
+            print('Caching data...')
             pickle.dump(self, f)
 
     def get_combined(self):
@@ -363,17 +444,33 @@ class LidarDataArtificial(LidarData):
         y = np.r_[self.y, self.y_artificial]
         return x, y
 
+    def get_x(self):
+        return self.get_combined()[0]
+
+    def get_y(self):
+        return self.get_combined()[1]
+
     def train_test_split(self, validation_size):
         idx = np.arange(self.x.shape[0])
+        np.random.shuffle(idx)
         cutoff_idx = int(idx.shape[0] * validation_size)
         train_idx = idx[cutoff_idx:]
         valid_idx = idx[:cutoff_idx]
 
-        self.x_train = self.x[train_idx]
-        self.x_valid = self.x[valid_idx]
-        self.y_train = self.y[train_idx]
-        self.y_valid = self.y[valid_idx]
+        artificial_idx = np.arange(self.x.shape[0], 
+            self.x.shape[0] + self.x_artificial.shape[0])
 
-if __name__ == '__main__':
-    LidarData(category='data_neon')
+        train_idx = np.r_[train_idx, artificial_idx]
+        np.random.shuffle(train_idx)
+
+        x, y = self.get_combined()
+
+        self.x_train = x[train_idx]
+        self.x_valid = x[valid_idx]
+        self.y_train = y[train_idx]
+        self.y_valid = y[valid_idx]
+
+        self.train_idx = train_idx
+        self.valid_idx = valid_idx
+
 

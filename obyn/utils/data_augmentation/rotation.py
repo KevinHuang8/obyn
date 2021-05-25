@@ -1,5 +1,11 @@
 import numpy as np
-from ..process_lidar import standardize_points
+from tqdm import tqdm
+from .. import constants as C
+
+def standardize_points(points):
+    min_points = np.min(points, axis=0)
+    points = points - min_points
+    return points
 
 def random_square(xmin, ymin, xmax, ymax, size):
     '''
@@ -69,7 +75,8 @@ def rotate_points(points, theta, center):
     points[:, :2] = rotated[:, :2]
     return points
 
-def augment_rotation(lidar_data, size=20, num=3, threshold=50):
+def augment_rotation(lidar_data, size=20, num=C.NUM_EXTRA_AUGMENTED, 
+        threshold=C.NONZERO_POINT_THRESHOLD):
     augmented_points = []
     
     for points in tqdm(lidar_data):

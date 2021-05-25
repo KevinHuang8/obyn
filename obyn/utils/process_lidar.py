@@ -1,4 +1,6 @@
 import numpy as np
+from tqdm import tqdm
+from .data_augmentation import rotation
 from . import constants
 
 def remove_excess(points, amount):
@@ -105,7 +107,7 @@ def sync_size(lidar_data, n=1024, optimal_voxel=True):
     n - number of points to use
     '''
     new_points = []
-    for points in lidar_data:
+    for points in tqdm(lidar_data):
         nonzero_pts = points[points[:, 4] != 0]
         zero_pts = points[points[:, 4] == 0]
         
@@ -204,7 +206,7 @@ def create_group_matrix(data, n=1024):
     return labels
 
 def process_lidar(lidar_data, split=True, n=None, threshold=None,
-    optimal_voxel=True):
+    optimal_voxel=True, augment=False):
     '''
     Fully calls the pipeline for loading the lidar data.
 
@@ -214,6 +216,8 @@ def process_lidar(lidar_data, split=True, n=None, threshold=None,
     points are discarded
     split - whether to split the image into quadrants to decrease the # of
     points
+    augment - whether to augment the data with rotations. If true, return
+    the length of augmented data as well
 
     returns x, y - x is the point cloud, y is the gt labels
         x - shape (num samples, n, 3)
@@ -228,7 +232,19 @@ def process_lidar(lidar_data, split=True, n=None, threshold=None,
     # Whether to split lidar into quadrants (do it for neon)
     if split:
         lidar_data = quad_points(lidar_data, threshold)
+    print('Syncing point cloud sizes...')
     synced = sync_size(lidar_data, n, optimal_voxel=optimal_voxel)
+
+    if augment:
+        print('Augmenting data...')
+        augmented_data = rotation.augment_rotation(lidar_data)
+        print('Syncing augmented data sizes...')
+        augmented_synced = sync_size(augmented_data, n, optimal_voxel=optimal_voxel)
+        augmented_size = augmented_synced.shape[0]
+        synced = np.r_[synced, augmented_synced]
+
     #labels = create_group_matrix(synced, n)
     labels = synced[:,:,4]
+    if augment:
+        return synced[:, :, :3], labels, augmented_size
     return synced[:, :, :3], labels

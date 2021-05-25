@@ -1,11 +1,9 @@
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
-import argparse
 import tensorflow as tf
 import numpy as np
 import os
-import sys
 from ..models import model
 from ..utils import read_data as read_data
 import matplotlib.pyplot as plt
@@ -30,18 +28,26 @@ print('#### Batch Size: {0}'.format(BATCH_SIZE))
 print('#### Point Number: {0}'.format(POINT_NUM))
 print('### Number of training epochs: {0}'.format(TRAINING_EPOCHES))
 
-DECAY_STEP = 800000.
-DECAY_RATE = 0.5
+DECAY_STEP = C.DECAY_STEP
+DECAY_RATE = C.DECAY_RATE
 
-LEARNING_RATE_CLIP = 1e-6
-BASE_LEARNING_RATE = 1e-4
-MOMENTUM = 0.9
+LEARNING_RATE_CLIP = C.LEARNING_RATE_CLIP
+BASE_LEARNING_RATE = C.BASE_LEARNING_RATE
+MOMENTUM = C.MOMENTUM
 
 def printout(flog, data):
     print(data)
     flog.write(data + '\n')
 
-def train(data_category='data_neon', force_reload=False, artificial_labels=False):
+def train(data, name):
+    '''
+    Train the model.
+
+    data - Data object
+    name - a string for the model name. The model checkpoint will be saved
+    with this name.
+    '''
+    print('Starting training...')
     with tf.Graph().as_default():
         with tf.device('/gpu:' + str(gpu_number)):
             batch = tf.Variable(0, trainable=False, name='batch')
@@ -58,11 +64,14 @@ def train(data_category='data_neon', force_reload=False, artificial_labels=False
 
             # Placeholders to initialize the model
             # pointclouds_ph: BATCH_SIZExPOINT_NUMx3 tensor of lidar points
-            # ptsseglabel_ph: NxPOINTxNUM_CATEGORY tensor of segmentation ground truth (one-hot encoded)
-            # ptsgroup_label_ph: NxPOINT_NUMxNUM_GROUPS tensor of instance segmentation ground truth (one-hot encoded)
+            # ptsseglabel_ph: NxPOINTxNUM_CATEGORY tensor of segmentation ground 
+            # truth (one-hot encoded)
+            # ptsgroup_label_ph: NxPOINT_NUMxNUM_GROUPS tensor of instance 
+            # segmentation ground truth (one-hot encoded)
             # pts_seglabel_mask_ph: NxPOINT_NUM tensor of segmentation mask
             # pts_group_mask_ph: NxPOINT_NUM tensor of instance segmentation mask
-            pointclouds_ph, ptsseglabel_ph, ptsgroup_label_ph, pts_seglabel_mask_ph, pts_group_mask_ph, alpha_ph = \
+            pointclouds_ph, ptsseglabel_ph, ptsgroup_label_ph, pts_seglabel_mask_ph, \
+                pts_group_mask_ph, alpha_ph = \
                 model.placeholder_inputs(BATCH_SIZE, POINT_NUM, NUM_GROUPS, NUM_CATEGORY)
             group_mat_label = tf.matmul(ptsgroup_label_ph, tf.transpose(ptsgroup_label_ph, perm=[0, 2, 1]))
 
@@ -75,12 +84,15 @@ def train(data_category='data_neon', force_reload=False, artificial_labels=False
                       'group_mask': pts_group_mask_ph}
 
             # Get the initialized model
-            net_output = model.get_model(pointclouds_ph, is_training_ph, group_cate_num=NUM_CATEGORY)
-            loss, grouperr, same, same_cnt, diff, diff_cnt, pos, pos_cnt = model.get_loss(net_output, labels, alpha_ph)
+            net_output = model.get_model(pointclouds_ph, is_training_ph, 
+                group_cate_num=NUM_CATEGORY, bn_decay=C.BN_DECAY)
+            loss, grouperr, same, same_cnt, diff, diff_cnt, pos, pos_cnt = \
+                model.get_loss(net_output, labels, alpha_ph)
 
             total_training_loss_ph = tf.placeholder(tf.float32, shape=())
             group_err_loss_ph = tf.placeholder(tf.float32, shape=())
-            total_train_loss_sum_op = tf.summary.scalar('total_training_loss', total_training_loss_ph)
+            total_train_loss_sum_op = tf.summary.scalar('total_training_loss', 
+                total_training_loss_ph)
             group_err_op = tf.summary.scalar('group_err_loss', group_err_loss_ph)
 
         train_variables = tf.trainable_variables()
@@ -110,47 +122,22 @@ def train(data_category='data_neon', force_reload=False, artificial_labels=False
         flog = open('log.txt', 'w')
 
         # Load all data into memory
-        if artificial_labels:
-            data = read_data.LidarDataArtificial(category=data_category, force_reload=force_reload,
-                skip=C.ARTIFICIAL_LABEL_SKIP)
-            real_len = data.x.shape[0]
-            x, y = data.get_combined()
-            all_data = x # Lidar points NxPOINT_NUMx3
-            all_group = y # Group/instance labels NxPOINT_NUM, will be one-hot encoded later
-        else:
-            data = read_data.LidarData(category=data_category, force_reload=force_reload)
-            all_data = data.x
-            all_group = data.y
-        all_seg = np.where(all_group > 0, 1, 0) # Segmentation results NxPOINT_NUM: 0 for ground, 1 for tree
+        # Lidar points NxPOINT_NUMx3
+        all_data = data.get_x()
+        # Group/instance labels NxPOINT_NUM, will be one-hot encoded later
+        all_group = data.get_y()
+        # Segmentation results NxPOINT_NUM: 0 for ground, 1 for tree
+        all_seg = np.where(all_group > 0, 1, 0)
 
-        # Train/Validation Split
-        # Don't include data augmentation in validation data
-        if artificial_labels:
-            real_idx = np.arange(real_len)
-            np.random.shuffle(real_idx)
-            cutoff_idx = int(len(real_idx) * C.VALIDATION_SIZE)
-            train_idx = real_idx[cutoff_idx:]
-            valid_idx = real_idx[:cutoff_idx]
+        data.train_test_split(C.VALIDATION_SIZE)
 
-            idx = np.arange(real_len, all_data.shape[0])
-            np.random.shuffle(idx)
+        train_data = data.x_train
+        train_group = data.y_train
+        train_seg = all_seg[data.train_idx]
 
-            train_idx = np.r_[train_idx, idx]
-        else:
-            idx = np.arange(all_data.shape[0])
-            validation_percentage = C.VALIDATION_SIZE
-            np.random.shuffle(idx)
-            cutoff_idx = int(len(idx) * validation_percentage)
-            train_idx = idx[cutoff_idx:]
-            valid_idx = idx[:cutoff_idx]
-
-        train_data = all_data[train_idx]
-        train_group = all_group[train_idx]
-        train_seg = all_seg[train_idx]
-
-        valid_data = all_data[valid_idx]
-        valid_group = all_group[valid_idx]
-        valid_seg = all_seg[valid_idx]
+        valid_data = data.x_valid
+        valid_group = data.y_valid
+        valid_seg = all_seg[data.valid_idx]
 
         num_data_train = len(train_data)
         num_data_valid = len(valid_data)
@@ -159,7 +146,9 @@ def train(data_category='data_neon', force_reload=False, artificial_labels=False
 
         def train_one_epoch(epoch_num):
 
-            ### NOTE: is_training = False: We do not update bn parameters during training due to the small batch size. This requires pre-training PointNet with large batchsize (say 32).
+            ### NOTE: is_training = False: We do not update bn parameters during 
+            # training due to the small batch size. This requires pre-training 
+            # PointNet with large batchsize (say 32).
             is_training = True
 
             order = np.arange(num_data_train)
@@ -177,8 +166,10 @@ def train(data_category='data_neon', force_reload=False, artificial_labels=False
                 endidx = (j + 1) * BATCH_SIZE
 
                 # Convert the ground-truth labels to one-hot encode
-                pts_label_one_hot, pts_label_mask = model.convert_seg_to_one_hot(train_seg[order[begidx: endidx]])
-                pts_group_label, pts_group_mask = model.convert_groupandcate_to_one_hot(train_group[order[begidx: endidx]])
+                pts_label_one_hot, pts_label_mask = model.convert_seg_to_one_hot(
+                    train_seg[order[begidx: endidx]])
+                pts_group_label, pts_group_mask = model.convert_groupandcate_to_one_hot(
+                    train_group[order[begidx: endidx]])
 
                 feed_dict = {
                     pointclouds_ph: train_data[order[begidx: endidx], ...],
@@ -190,7 +181,10 @@ def train(data_category='data_neon', force_reload=False, artificial_labels=False
                     alpha_ph: C.MIN_ALPHA,
                 }
 
-                _, loss_val, simmat_val, grouperr_val, same_val, same_cnt_val, diff_val, diff_cnt_val, pos_val, pos_cnt_val = sess.run([train_op, loss, net_output['simmat'], grouperr, same, same_cnt, diff, diff_cnt, pos, pos_cnt], feed_dict=feed_dict)
+                _, loss_val, simmat_val, grouperr_val, same_val, same_cnt_val, \
+                    diff_val, diff_cnt_val, pos_val, pos_cnt_val = sess.run(
+                        [train_op, loss, net_output['simmat'], grouperr, same, \
+                            same_cnt, diff, diff_cnt, pos, pos_cnt], feed_dict=feed_dict)
                 total_loss += loss_val
                 total_grouperr += grouperr_val
                 total_diff += (diff_val / diff_cnt_val)
@@ -198,7 +192,6 @@ def train(data_category='data_neon', force_reload=False, artificial_labels=False
                     total_same += same_val / same_cnt_val
                     same_cnt0 += 1
                 total_pos += pos_val / pos_cnt_val
-
 
 
             # Return train loss values per epoch
@@ -240,72 +233,6 @@ def train(data_category='data_neon', force_reload=False, artificial_labels=False
                 total_loss += (loss_val/num_batch_valid)
 
             return total_loss
-            '''
-            ths = np.zeros(NUM_CATEGORY)
-            ths_ = np.zeros(NUM_CATEGORY)
-            cnt = np.zeros(NUM_CATEGORY)
-
-            pixel_accuracies = []
-
-            for j in range(num_batch_valid):
-                begidx = j * BATCH_SIZE
-                endidx = (j + 1) * BATCH_SIZE
-
-                pts = valid_data[begidx:endidx]
-                seg = valid_seg[begidx:endidx]
-                group = valid_group[begidx:endidx]
-
-                pts_label_one_hot, pts_label_mask = model.convert_seg_to_one_hot(seg)
-                pts_group_label, _ = model.convert_groupandcate_to_one_hot(group)
-
-                feed_dict = {
-                    pointclouds_ph: pts,
-                    ptsseglabel_ph: pts_label_one_hot,
-                    ptsgroup_label_ph: pts_group_label,
-                    is_training_ph: is_training,
-                }
-
-                pts_corr_val0, pred_confidence_val0, ptsclassification_val0, pts_corr_label_val0 = \
-                    sess.run([net_output['simmat'],
-                              net_output['conf'],
-                              net_output['semseg'],
-                              group_mat_label], # group_mat_label is the similarity matrix of the ground truth
-                              feed_dict=feed_dict)
-
-                #print(pts_corr_val0.shape, pred_confidence_val0.shape, ptsclassification_val0.shape, pts_corr_label_val0.shape)
-
-                # Iterate over batch
-                for i in range(BATCH_SIZE):
-                    # Set range of volume of 3D image
-                    # TODO: May need to round and standardize ranges to make this easier to manage
-                    gap = 0.1
-                    volume_num = int(50 / gap)
-                    volume = -1* np.ones([volume_num,volume_num,volume_num]).astype(np.int32)
-                    volume_seg = -1* np.ones([volume_num,volume_num,volume_num, NUM_CATEGORY]).astype(np.int32)
-
-                    pts_corr_val = np.squeeze(pts_corr_val0[i])
-                    pred_confidence_val = np.squeeze(pred_confidence_val0[i])
-                    ptsclassification_val = np.argmax(np.squeeze(ptsclassification_val0[i]),axis=1)
-                    #print(pts_corr_val.shape, seg[i].shape, group[i].shape, ths.shape, ths_.shape, cnt.shape)
-
-                    # Get Ths
-                    #hs, ths_, cnt = Get_Ths(pts_corr_val, seg[i], group[i], ths, ths_, cnt)
-                    #print (ths/cnt)
-
-                    # Make Prediction
-                    groupids_block, refineseg, group_seg = GroupMerging(pts_corr_val, pred_confidence_val, ptsclassification_val, np.ones(POINT_NUM)*1.0)
-                    groupids = BlockMerging(volume, volume_seg, pts[i], groupids_block.astype(np.int32), group_seg, gap)
-                    # Change labels to match rank
-                    groupids = np.array(obtain_rank(groupids))
-
-                    #print(np.unique(groupids))
-                    #print(np.unique(group[i]))
-                    pixel_acc = np.sum(obtain_rank(groupids) == obtain_rank(group[i]))/POINT_NUM
-                    pixel_accuracies.append(pixel_acc)
-
-            return np.mean(pixel_accuracies)
-            '''
-
 
         train_loss = []
         valid_loss = []
@@ -313,14 +240,16 @@ def train(data_category='data_neon', force_reload=False, artificial_labels=False
             printout(flog, '\n>>> Training epoch %d/%d ...' % (epoch, TRAINING_EPOCHES))
             epoch_train_loss = train_one_epoch(epoch)
 
-            cp_filename = saver.save(sess, 
-                str(C.CHECKPOINT_DIR / ('epoch_' + str(epoch) + '.ckpt')))
-            printout(flog, 'Successfully store the checkpoint model into ' + cp_filename)
+            if epoch == TRAINING_EPOCHES:
+                cp_filename = saver.save(sess, 
+                    str(C.CHECKPOINT_DIR / (name + '.ckpt')))
+                printout(flog, 'Successfully store the checkpoint model into ' + cp_filename)
 
             epoch_valid_loss = validate()
             train_loss.append(epoch_train_loss)
             valid_loss.append(epoch_valid_loss)
-            print("Training Loss: {}, Validation Loss: {}".format(epoch_train_loss, epoch_valid_loss))
+            print("Training Loss: {}, Validation Loss: {}".format(epoch_train_loss, 
+                epoch_valid_loss))
             flog.flush()
 
         # Plot training/valid loss
@@ -331,11 +260,7 @@ def train(data_category='data_neon', force_reload=False, artificial_labels=False
         plt.ylabel('loss')
         plt.xlabel('epoch')
         plt.legend(['train', 'validation'], loc='upper left')
-        plt.savefig('loss.png')
-        plt.show()
+        plt.savefig(C.FIGURES_DIR / f'loss_{name}.png')
 
         flog.close()
 
-
-if __name__ == '__main__':
-    train()

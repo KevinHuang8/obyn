@@ -20,13 +20,5 @@ data/NeonTrees
 data/data_idtrees_lidar
 train/
 log.txt
-*.png
 data_augmentation.ipynb
 data/
-obyn/training/checkpoints/*
-
-!obyn/training/checkpoints/checkpoint
-!obyn/training/checkpoints/epoch_20.ckpt.meta
-!obyn/training/checkpoints/epoch_20.ckpt.index
-!obyn/training/checkpoints/epoch_20.ckpt.data-00000-of-00001
-
