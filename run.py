@@ -26,7 +26,7 @@ if __name__ == '__main__':
 
     ap, prec, recall = evaluate(data.x[valid_idx], data.y[valid_idx], model_name)
 
-    print(f'{AP}: ap')
+    print(f'AP: {ap}')
     plt.figure()
     plt.plot(recall, prec)
     plt.xlabel('Recall')
