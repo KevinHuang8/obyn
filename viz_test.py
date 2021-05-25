@@ -9,8 +9,8 @@ if __name__ == '__main__':
     # to compile the render_balls_so.so file
 
     data = read_data.LidarData(category='data_neon', force_reload=False)
-    X = data.x[32:33]
-    Y = data.y[32:33]
+    X = data.x[12:15]
+    Y = data.y[12:15]
 
     assert len(X) == len(Y)
 

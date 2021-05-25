@@ -1,7 +1,7 @@
 import numpy as np
 from scipy import stats
 import matplotlib as mpl
-import json
+from . import constants as C
 from scipy.stats import rankdata
 mpl.use('Agg')
 
@@ -97,12 +97,11 @@ def Get_Ths(pts_corr, seg, ins, ths, ths_, cnt):
 ##    Merging Algorithms    ##
 ##############################
 
-def GroupMerging(pts_corr, confidence, seg, label_bin):
-    CONF_THRESH = 0.1
-    MIN_POINTS_IN_GROUP_PROPOSAL = 10
+def GroupMerging(pts_corr, confidence, seg, label_bin, 
+    conf_thresh=C.DEFAULT_CONFIDENCE_THRESHOLD):
 
     # Filters points based on confidence level
-    confvalidpts = (confidence>CONF_THRESH)
+    confvalidpts = (confidence>conf_thresh)
 
     # Number of unique segementation classes
     un_seg = np.unique(seg)
@@ -140,10 +139,10 @@ def GroupMerging(pts_corr, confidence, seg, label_bin):
             if len(proposals) == 0:
                 proposals += [pts_in_seg]
 
-        print("Group Merging has found {} potential proposals for Segmentation class {}".format(len(proposals), i_seg))
+        # print("Group Merging has found {} potential proposals for Segmentation class {}".format(len(proposals), i_seg))
         for gp in range(len(proposals)):
-            print("Group Proposal {} for class {} has {} points".format(gp, i_seg ,np.sum(proposals[gp])))
-            if np.sum(proposals[gp])>MIN_POINTS_IN_GROUP_PROPOSAL:
+            # print("Group Proposal {} for class {} has {} points".format(gp, i_seg ,np.sum(proposals[gp])))
+            if np.sum(proposals[gp])>C.MIN_POINTS_IN_GROUP_PROPOSAL:
                 groupid[proposals[gp]] = numgroups
                 groupseg[numgroups] = i_seg
                 numgroups += 1

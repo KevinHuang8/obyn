@@ -2,6 +2,12 @@ import numpy as np
 from ..process_lidar import standardize_points
 
 def random_square(xmin, ymin, xmax, ymax, size):
+    '''
+    Generate a square with random orientation within a larger rectangle.
+    
+    xmin, ... are the bounds of the larger rectangle
+    size - side length of the square
+    '''
     diag_len = size*np.sqrt(2) / 2
     
     xstart = xmin + diag_len
@@ -23,6 +29,9 @@ def random_square(xmin, ymin, xmax, ymax, size):
     return [np.array([x - dx1, y - dy1]), np.array([x + dx2, y + dy2]), np.array([x + dx1, y + dy1]),  np.array([x - dx2, y - dy2])], theta - np.pi / 4, center
 
 def point_in_square(square, point):
+    '''
+    Check whether point is in square.
+    '''
     A, B, C, D = square
     
     AB = B - A
@@ -33,6 +42,9 @@ def point_in_square(square, point):
     return (0 <= np.dot(AB, AM) <= np.dot(AB, AB)) and (0 <= np.dot(BC, BM) <= np.dot(BC, BC))
 
 def filter_points(square, points):
+    '''
+    Remove the points in a point cloud that are not in the square.
+    '''
     filtered_points = []
     for pt in points:
         if point_in_square(square, np.r_[pt[0], pt[1]]):
@@ -40,6 +52,9 @@ def filter_points(square, points):
     return np.array(filtered_points)
 
 def rotate_points(points, theta, center):
+    '''
+    Rotate point clouds by angle theta centered at point center.
+    '''
     x, y = center
     n = points.shape[0]
     rotation_matrix = np.array([

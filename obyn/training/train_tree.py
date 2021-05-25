@@ -1,3 +1,6 @@
+import warnings
+warnings.simplefilter(action='ignore', category=FutureWarning)
+
 import argparse
 import tensorflow as tf
 import numpy as np
@@ -9,6 +12,8 @@ import matplotlib.pyplot as plt
 from ..utils import constants as C
 from ..utils.test_utils import BlockMerging, GroupMerging, obtain_rank
 from tqdm import tqdm
+
+tf.logging.set_verbosity(tf.logging.ERROR)
 
 gpu_number = 0 # GPU number to use
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"  # see issue #152

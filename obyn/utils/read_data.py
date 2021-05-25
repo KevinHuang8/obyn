@@ -285,6 +285,17 @@ class LidarData(Data):
         self.y = np.r_[y, self.y]
         self.lidar.extend(neon_lidar)
 
+    def train_test_split(self, validation_size):
+        idx = np.arange(self.x.shape[0])
+        cutoff_idx = int(idx.shape[0] * validation_size)
+        train_idx = idx[cutoff_idx:]
+        valid_idx = idx[:cutoff_idx]
+
+        self.x_train = self.x[train_idx]
+        self.x_valid = self.x[valid_idx]
+        self.y_train = self.y[train_idx]
+        self.y_valid = self.y[valid_idx]
+
 class LidarDataArtificial(LidarData):
     DATA_LOCATION_NEON_LIDAR_NONLABEL = DATA_DIR / 'data_neon_lidar_artificial'
 
@@ -352,6 +363,16 @@ class LidarDataArtificial(LidarData):
         y = np.r_[self.y, self.y_artificial]
         return x, y
 
+    def train_test_split(self, validation_size):
+        idx = np.arange(self.x.shape[0])
+        cutoff_idx = int(idx.shape[0] * validation_size)
+        train_idx = idx[cutoff_idx:]
+        valid_idx = idx[:cutoff_idx]
+
+        self.x_train = self.x[train_idx]
+        self.x_valid = self.x[valid_idx]
+        self.y_train = self.y[train_idx]
+        self.y_valid = self.y[valid_idx]
 
 if __name__ == '__main__':
     LidarData(category='data_neon')
