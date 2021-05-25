@@ -6,9 +6,8 @@ import numpy as np
 import os
 from ..models import model
 from ..utils import read_data as read_data
-import matplotlib.pyplot as plt
 from ..utils import constants as C
-from ..utils.test_utils import BlockMerging, GroupMerging, obtain_rank, Get_Ths
+from ..utils.test_utils import GroupMerging, obtain_rank, Get_Ths
 from tqdm import tqdm
 
 tf.logging.set_verbosity(tf.logging.ERROR)
@@ -39,10 +38,10 @@ def calculate_ths(X, y, name):
             is_training_ph = tf.placeholder(tf.bool, shape=())
 
             pointclouds_ph, ptsseglabel_ph, ptsgroup_label_ph, _, _, _ = \
-                model.placeholder_inputs(BATCH_SIZE, POINT_NUM, NUM_GROUPS, 
+                model.placeholder_inputs(BATCH_SIZE, POINT_NUM, NUM_GROUPS,
                     NUM_CATEGORY)
 
-            net_output = model.get_model(pointclouds_ph, is_training_ph, 
+            net_output = model.get_model(pointclouds_ph, is_training_ph,
                 group_cate_num=NUM_CATEGORY, bn_decay=C.BN_DECAY)
 
         # Add ops to save and restore all the variables.
@@ -66,7 +65,7 @@ def calculate_ths(X, y, name):
             all_group = y
             # Segmentation results NxPOINT_NUM: 0 for ground, 1 for tree
             num_data = all_data.shape[0]
-            all_seg = np.where(all_group > 0, 1, 0) 
+            all_seg = np.where(all_group > 0, 1, 0)
 
             print('Calculating Ths...')
             for i in tqdm(range(num_data)):
@@ -87,7 +86,7 @@ def calculate_ths(X, y, name):
 
                 gt_group = obtain_rank(all_group[i])
 
-                ths, ths_, cnt = Get_Ths(pts_corr_val, all_seg[i], gt_group, 
+                ths, ths_, cnt = Get_Ths(pts_corr_val, all_seg[i], gt_group,
                     ths, ths_, cnt)
 
             ths = [ths[i]/cnt[i] if cnt[i] != 0 else 0.2 for i in range(len(cnt))]
@@ -95,5 +94,3 @@ def calculate_ths(X, y, name):
             np.save(C.THS_DIR / (name + '.npy'), ths)
 
     return ths
-
-            

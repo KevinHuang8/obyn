@@ -6,9 +6,8 @@ import numpy as np
 import os
 from ..models import model
 from ..utils import read_data as read_data
-import matplotlib.pyplot as plt
 from ..utils import constants as C
-from ..utils.test_utils import BlockMerging, GroupMerging, obtain_rank, Get_Ths
+from ..utils.test_utils import GroupMerging, obtain_rank
 from ..evaluation.calculate_ths import calculate_ths
 from tqdm import tqdm
 
@@ -26,7 +25,7 @@ NUM_CATEGORY = 2 # Number of different classes (tree, ground)
 
 def model_output(X, model_path):
     '''
-    Get model output on input X. 
+    Get model output on input X.
 
     Model checkpoint is saved at 'model_path'
     '''
@@ -37,10 +36,10 @@ def model_output(X, model_path):
             is_training_ph = tf.placeholder(tf.bool, shape=())
 
             pointclouds_ph, ptsseglabel_ph, ptsgroup_label_ph, _, _, _ = \
-                model.placeholder_inputs(BATCH_SIZE, POINT_NUM, NUM_GROUPS, 
+                model.placeholder_inputs(BATCH_SIZE, POINT_NUM, NUM_GROUPS,
                     NUM_CATEGORY)
 
-            net_output = model.get_model(pointclouds_ph, is_training_ph, 
+            net_output = model.get_model(pointclouds_ph, is_training_ph,
                 group_cate_num=NUM_CATEGORY, bn_decay=C.BN_DECAY)
 
         # Add ops to save and restore all the variables.
@@ -87,10 +86,10 @@ def model_output(X, model_path):
                     'semseg': ptsclassification_val
                     })
 
-    return model_outputs 
+    return model_outputs
 
 
-def predict(name, model_outputs=None, confidence_threshold=C.DEFAULT_CONFIDENCE_THRESHOLD, 
+def predict(name, model_outputs=None, confidence_threshold=C.DEFAULT_CONFIDENCE_THRESHOLD,
     X=None, y=None, reload_ths=False, use_outputs=True):
     '''
     Return model predictions.
@@ -98,9 +97,9 @@ def predict(name, model_outputs=None, confidence_threshold=C.DEFAULT_CONFIDENCE_
     'name' - name of the model (same as the name of the Ths file)
 
     Can either pass in 'model_outputs' and 'use_outputs=True', in which case
-    the model_outputs are used to make predictions, 
+    the model_outputs are used to make predictions,
     OR
-    pass in 'X' and 'use_outputs=False' to predictions on input 
+    pass in 'X' and 'use_outputs=False' to predictions on input
     point cloud X using model 'name'.
 
     If Ths is not calculated yet, pass in gt labels 'y' to recalculate.
@@ -132,8 +131,8 @@ def predict(name, model_outputs=None, confidence_threshold=C.DEFAULT_CONFIDENCE_
         ptsclassification_val = output['semseg']
 
         # Make Prediction
-        groupids_block, _, _ = GroupMerging(pts_corr_val, 
-            pred_confidence_val, ptsclassification_val, ths, 
+        groupids_block, _, _ = GroupMerging(pts_corr_val,
+            pred_confidence_val, ptsclassification_val, ths,
             confidence_threshold)
         groupids = obtain_rank(groupids_block)
 

@@ -5,10 +5,9 @@ import tensorflow as tf
 import numpy as np
 import os
 from ..models import model
-from ..utils import read_data as read_data
 import matplotlib.pyplot as plt
 from ..utils import constants as C
-from ..utils.test_utils import BlockMerging, GroupMerging, obtain_rank
+from ..utils.test_utils import GroupMerging, obtain_rank
 from tqdm import tqdm
 
 tf.logging.set_verbosity(tf.logging.ERROR)
@@ -64,9 +63,9 @@ def train(data, name):
 
             # Placeholders to initialize the model
             # pointclouds_ph: BATCH_SIZExPOINT_NUMx3 tensor of lidar points
-            # ptsseglabel_ph: NxPOINTxNUM_CATEGORY tensor of segmentation ground 
+            # ptsseglabel_ph: NxPOINTxNUM_CATEGORY tensor of segmentation ground
             # truth (one-hot encoded)
-            # ptsgroup_label_ph: NxPOINT_NUMxNUM_GROUPS tensor of instance 
+            # ptsgroup_label_ph: NxPOINT_NUMxNUM_GROUPS tensor of instance
             # segmentation ground truth (one-hot encoded)
             # pts_seglabel_mask_ph: NxPOINT_NUM tensor of segmentation mask
             # pts_group_mask_ph: NxPOINT_NUM tensor of instance segmentation mask
@@ -84,14 +83,14 @@ def train(data, name):
                       'group_mask': pts_group_mask_ph}
 
             # Get the initialized model
-            net_output = model.get_model(pointclouds_ph, is_training_ph, 
+            net_output = model.get_model(pointclouds_ph, is_training_ph,
                 group_cate_num=NUM_CATEGORY, bn_decay=C.BN_DECAY)
             loss, grouperr, same, same_cnt, diff, diff_cnt, pos, pos_cnt = \
                 model.get_loss(net_output, labels, alpha_ph)
 
             total_training_loss_ph = tf.placeholder(tf.float32, shape=())
             group_err_loss_ph = tf.placeholder(tf.float32, shape=())
-            total_train_loss_sum_op = tf.summary.scalar('total_training_loss', 
+            total_train_loss_sum_op = tf.summary.scalar('total_training_loss',
                 total_training_loss_ph)
             group_err_op = tf.summary.scalar('group_err_loss', group_err_loss_ph)
 
@@ -146,8 +145,8 @@ def train(data, name):
 
         def train_one_epoch(epoch_num):
 
-            ### NOTE: is_training = False: We do not update bn parameters during 
-            # training due to the small batch size. This requires pre-training 
+            ### NOTE: is_training = False: We do not update bn parameters during
+            # training due to the small batch size. This requires pre-training
             # PointNet with large batchsize (say 32).
             is_training = True
 
@@ -241,14 +240,14 @@ def train(data, name):
             epoch_train_loss = train_one_epoch(epoch)
 
             if epoch == TRAINING_EPOCHES:
-                cp_filename = saver.save(sess, 
+                cp_filename = saver.save(sess,
                     str(C.CHECKPOINT_DIR / (name + '.ckpt')))
                 printout(flog, 'Successfully store the checkpoint model into ' + cp_filename)
 
             epoch_valid_loss = validate()
             train_loss.append(epoch_train_loss)
             valid_loss.append(epoch_valid_loss)
-            print("Training Loss: {}, Validation Loss: {}".format(epoch_train_loss, 
+            print("Training Loss: {}, Validation Loss: {}".format(epoch_train_loss,
                 epoch_valid_loss))
             flog.flush()
 
@@ -263,4 +262,3 @@ def train(data, name):
         plt.savefig(C.FIGURES_DIR / f'loss_{name}.png')
 
         flog.close()
-
