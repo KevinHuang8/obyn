@@ -14,7 +14,7 @@ Type: Not augmented
 
 Points per cloud: 4096
 
-Batch size: 3
+Batch size: 4
 
 Epochs: 20
 

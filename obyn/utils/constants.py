@@ -25,7 +25,7 @@ FIGURES_DIR = MAIN_DIR / 'figures'
 #####################
 
 # Number of points per point cloud
-NUM_POINTS = 1024
+NUM_POINTS = 4096
 # Point clouds with less than this many nonzero points are discarded
 NONZERO_POINT_THRESHOLD = 50
 
@@ -33,14 +33,14 @@ NONZERO_POINT_THRESHOLD = 50
 ARTIFICIAL_LABEL_SKIP = 10 
 # How many extra samples to add to the augmented dataset by rotations per original
 # sample
-NUM_EXTRA_AUGMENTED = 3
+NUM_EXTRA_AUGMENTED = 4
 
 ######################
 ## Model parameters ##
 ######################
 
 # Maximum number of instances (trees) in a point cloud
-NUM_GROUPS = 100
+NUM_GROUPS = 88
 # Batch normalization exponential moving average decay
 # Lower if overfitting
 BN_DECAY = 0.9
@@ -49,7 +49,7 @@ BN_DECAY = 0.9
 ## Training parameters ##
 #########################
 
-BATCH_SIZE = 32
+BATCH_SIZE = 3
 TRAINING_EPOCHES = 20
 
 # Perecent of training data to use for validation
