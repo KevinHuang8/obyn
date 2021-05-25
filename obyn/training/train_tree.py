@@ -253,11 +253,11 @@ def train(data, name):
 
         # Plot training/valid loss
         plt.figure()
-        plt.plot(train_loss)
-        plt.plot(valid_loss)
+        plt.plot(np.log(train_loss))
+        plt.plot(np.log(valid_loss))
         plt.title('Model loss')
-        plt.ylabel('loss')
-        plt.xlabel('epoch')
+        plt.ylabel('log loss')
+        plt.xlabel('log epoch')
         plt.legend(['train', 'validation'], loc='upper left')
         plt.savefig(C.FIGURES_DIR / f'loss_{name}.png')
 

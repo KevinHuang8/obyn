@@ -148,6 +148,7 @@ def sync_size(lidar_data, n=1024, optimal_voxel=True):
             npoints = pad_zero(old_pts, -amount)
         else:
             npoints = old_pts
+
         new_points.append(npoints)
 
     return np.array(new_points)

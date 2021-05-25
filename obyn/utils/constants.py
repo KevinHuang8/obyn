@@ -25,7 +25,7 @@ FIGURES_DIR = MAIN_DIR / 'figures'
 #####################
 
 # Number of points per point cloud
-NUM_POINTS = 4096
+NUM_POINTS = 1024
 # Point clouds with less than this many nonzero points are discarded
 NONZERO_POINT_THRESHOLD = 50
 
@@ -49,7 +49,7 @@ BN_DECAY = 0.9
 ## Training parameters ##
 #########################
 
-BATCH_SIZE = 3
+BATCH_SIZE = 32
 TRAINING_EPOCHES = 20
 
 # Perecent of training data to use for validation
@@ -58,7 +58,7 @@ VALIDATION_SIZE = 0.15
 # alpha value for the loss
 # a higher alpha penalizes points that are in the same segmentation class
 # but are incorrectly grouped more
-MIN_ALPHA = 10
+MIN_ALPHA = 1
 
 # Adam optimizer parameters
 DECAY_STEP = 800000.
@@ -75,7 +75,7 @@ MOMENTUM = 0.9
 DEFAULT_CONFIDENCE_THRESHOLD = 0.1
 # groups with less than this number of points are discarded
 # Basically, we think that any trees with less than this number of points
-# aren't really trees
+# aren't really trees. Th_M2 in the paper
 MIN_POINTS_IN_GROUP_PROPOSAL = 10
 DEFAULT_IOU_THRESH = 0.5
 

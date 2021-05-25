@@ -48,6 +48,19 @@ def get_counts(gt_labels, pred_labels, iou_thresh):
 
     return TP, FP, FN
 
+def get_counts_all(gt_all, predictions_all, iou_thresh):
+    '''
+    Gets the TP, FP, and FN counts for all samples.
+    '''
+    TP, FP, FN = 0, 0, 0
+    for i, pred in enumerate(predictions_all):
+        dTP, dFP, dFN = get_counts(gt_all[i], pred, iou_thresh)
+        TP += dTP
+        FP += dFP
+        FN += dFN
+
+    return TP, FP, FN
+
 def precision(TP, FP):
     return TP / (TP + FP)
 

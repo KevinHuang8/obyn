@@ -5,7 +5,7 @@ from . import metrics
 from .calculate_ths import calculate_ths
 from ..utils import constants as C
 
-def evaluate(X, y, name, iou_thresh=C.DEFAULT_IOU_THRESH,
+def evaluate(X, y, name, iou_thresh=[C.DEFAULT_IOU_THRESH],
     num=C.NUM_ITER_PR_CURVE):
     '''
     Return average precision (AP) scores on validation data (X, y) using
@@ -23,30 +23,35 @@ def evaluate(X, y, name, iou_thresh=C.DEFAULT_IOU_THRESH,
 
     confidences = np.array(confidences)
 
-    precision_list = []
-    recall_list = []
+    precision_lists = {}
+    recall_lists = {}
+    ap_dict = {}
     conf_threshs = np.linspace(min(confidences), max(confidences), num)
+    
+    for iou_t in iou_thresh:
+        precision_lists[iou_t] = []
+        recall_lists[iou_t] = []
+
     print("Evaluating PR for {} different confidence levels".format(len(conf_threshs)))
     for conf_thresh in conf_threshs:
         print(f'Evaluating confidence threshold {conf_thresh}')
+        
         predictions = predict(name, model_outputs=model_outputs,
             confidence_threshold=conf_thresh, use_outputs=True)
 
-        TP, FP, FN = 0, 0, 0
-        for i, pred in enumerate(predictions):
-            dTP, dFP, dFN = metrics.get_counts(y[i], pred, iou_thresh)
-            TP += dTP
-            FP += dFP
-            FN += dFN
+        for iou_t in iou_thresh:
+            TP, FP, FN = metrics.get_counts_all(y, predictions, iou_t)
 
-        prec = metrics.precision(TP, FP)
-        precision_list.append(prec)
-        recall = metrics.recall(TP, FN)
-        recall_list.append(recall)
+            prec = metrics.precision(TP, FP)
+            precision_lists[iou_t].append(prec)
+            recall = metrics.recall(TP, FN)
+            recall_lists[iou_t].append(recall)
 
-    # Calculate AP (code from: https://blog.paperspace.com/mean-average-precision/)
-    recalls = np.array(recall_list + [0.0])
-    precisions = np.array(precision_list + [1.0])
-    ap = np.sum((recalls[:-1] - recalls[1:]) * precisions[:-1])
+    for iou_t in iou_thresh:
+        # Calculate AP (code from: https://blog.paperspace.com/mean-average-precision/)
+        recalls = np.array(recall_lists[iou_t] + [0.0])
+        precisions = np.array(precision_lists[iou_t] + [1.0])
+        ap = np.sum((recalls[:-1] - recalls[1:]) * precisions[:-1])
+        ap_dict[iou_t] = ap
 
-    return ap, precision_list, recall_list
+    return ap_dict, precision_lists, recall_lists
