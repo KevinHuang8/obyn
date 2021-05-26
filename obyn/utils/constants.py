@@ -36,7 +36,7 @@ ARTIFICIAL_LABEL_SKIP = 10
 NUM_EXTRA_AUGMENTED = 4
 
 # Groups with less than this number of points are removed
-GROUP_THRESHOLD = 0
+GROUP_THRESHOLD = 10
 
 ######################
 ## Model parameters ##

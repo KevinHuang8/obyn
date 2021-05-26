@@ -15,8 +15,7 @@ if __name__ == '__main__':
     train = False
     # Training
     if train:
-        data = read_data.LidarDataAugmented(data_name, category='data_neon', force_reload=True,
-            group_threshold=0)
+        data = read_data.LidarDataAugmented(data_name, category='data_neon', force_reload=True)
         t.train(data, model_name)
         data.save_indices(model_name)
 
