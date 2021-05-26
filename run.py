@@ -9,19 +9,20 @@ from obyn.utils import read_data
 from obyn.utils import constants as C
 
 if __name__ == '__main__':
-    data_name = 'standard'
-    model_name = 'model5'
+    data_name = 'augmented'
+    model_name = 'model3'
 
-    train = True
+    train = False
     # Training
     if train:
-        data = read_data.LidarData(data_name, category='data_neon', force_reload=False)
+        data = read_data.LidarDataAugmented(data_name, category='data_neon', force_reload=True,
+            group_threshold=0)
         t.train(data, model_name)
         data.save_indices(model_name)
 
     # After training, we can refer to the model by 'model_name'
     # Note everything after here can be done separately from training.
-    data = read_data.LidarData(data_name)
+    data = read_data.LidarDataAugmented(data_name)
     train_idx, valid_idx = data.load_indices(model_name)
 
     # Need to update Ths on the training data if not updated already

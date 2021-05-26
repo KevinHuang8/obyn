@@ -197,7 +197,8 @@ class Data:
         return new_images, new_labels
 
 class LidarData(Data):
-    def __init__(self, name, category='data_neon', force_reload=False):
+    def __init__(self, name, category='data_neon', force_reload=False,
+            group_threshold=GROUP_THRESHOLD):
         '''
         'name' - the name of the model associated with this data
 
@@ -208,11 +209,14 @@ class LidarData(Data):
 
         'force_reload' forces a generation of the serialized dataset from 
         scratch. Can take a while.
+
+        'group_threshold' - trees with less than this # of points are removed.
         '''
         if category != 'data_neon':
             raise ValueError('Only "data_neon" has correctly labeled data.')
         self.name = name
         self.savefile = DATA_GENERATED_DIR / name
+        self.group_threshold = group_threshold
         super().__init__(category=category, force_reload=force_reload)
 
     def _load_neon(self):
@@ -222,6 +226,7 @@ class LidarData(Data):
                 data_obj = pickle.load(f)
             self.lidar = data_obj.lidar
             self.lidar_filenames = data_obj.lidar_filenames
+            self.group_threshold = data_obj.group_threshold
             self.x = data_obj.x
             self.y = data_obj.y
             return
@@ -245,7 +250,7 @@ class LidarData(Data):
             self.lidar.append(lidar_dict[filename])
             self.lidar_filenames.append(filename)
 
-        self.x, self.y = process_lidar(self.lidar)
+        self.x, self.y = process_lidar(self.lidar, group_threshold=self.group_threshold)
 
         # Save to file
         with open(self.savefile, 'wb+') as f:
@@ -326,6 +331,7 @@ class LidarDataAugmented(LidarData):
                 data_obj = pickle.load(f)
             self.lidar = data_obj.lidar
             self.lidar_filenames = data_obj.lidar_filenames
+            self.group_threshold = data_obj.group_threshold
             self.x = data_obj.x
             self.y = data_obj.y
 
@@ -351,7 +357,8 @@ class LidarDataAugmented(LidarData):
             self.lidar.append(lidar_dict[filename])
             self.lidar_filenames.append(filename)
 
-        self.x, self.y, self.augment_size = process_lidar(self.lidar, augment=True)
+        self.x, self.y, self.augment_size = process_lidar(self.lidar, 
+            augment=True, group_threshold=self.group_threshold)
 
         # Save to file
         with open(self.savefile, 'wb+') as f:

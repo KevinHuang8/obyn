@@ -35,6 +35,9 @@ ARTIFICIAL_LABEL_SKIP = 10
 # sample
 NUM_EXTRA_AUGMENTED = 4
 
+# Groups with less than this number of points are removed
+GROUP_THRESHOLD = 0
+
 ######################
 ## Model parameters ##
 ######################
@@ -50,7 +53,7 @@ BN_DECAY = 0.9
 #########################
 
 BATCH_SIZE = 32
-TRAINING_EPOCHES = 20
+TRAINING_EPOCHES = 30
 
 # Perecent of training data to use for validation
 VALIDATION_SIZE = 0.15
@@ -58,7 +61,7 @@ VALIDATION_SIZE = 0.15
 # alpha value for the loss
 # a higher alpha penalizes points that are in the same segmentation class
 # but are incorrectly grouped more
-MIN_ALPHA = 1
+MIN_ALPHA = 5
 
 # Adam optimizer parameters
 DECAY_STEP = 800000.

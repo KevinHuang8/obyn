@@ -98,13 +98,23 @@ def downsample_voxel_match_size(points, n, grid_start=0.5, step_size=0.25):
         
     return down_pts
 
-def sync_size(lidar_data, n=1024, optimal_voxel=True):
+def remove_small_groups(points, threshold):
+    '''
+    Trees with less than 'threshold' points are removed.
+    '''
+    unique_ids, counts = np.unique(points[:, 4], return_counts=True)
+    keep_ids = unique_ids[counts >= threshold]
+    return points[np.in1d(points[:, 4], keep_ids)]
+
+def sync_size(lidar_data, n=1024, optimal_voxel=True, 
+        group_threshold=constants.GROUP_THRESHOLD):
     '''
     Given a list of lidar point clouds 'lidar_data', return a numpy array
     of lidar point clouds such that all the clouds have the same number of
     points.
 
     n - number of points to use
+    group_threshold - group labels with less than this many points are removed.
     '''
     new_points = []
     for points in tqdm(lidar_data):
@@ -139,6 +149,9 @@ def sync_size(lidar_data, n=1024, optimal_voxel=True):
         else:
             old_pts = points
         
+        # Remove trees with too few points
+        old_pts = remove_small_groups(old_pts, group_threshold)
+
         # We now have less nonzero points than n. Thus, we can just pad/remove
         # zero points until we get to the target size n.
         amount = old_pts.shape[0] - n
@@ -148,7 +161,7 @@ def sync_size(lidar_data, n=1024, optimal_voxel=True):
             npoints = pad_zero(old_pts, -amount)
         else:
             npoints = old_pts
-
+        
         new_points.append(npoints)
 
     return np.array(new_points)
@@ -207,7 +220,8 @@ def create_group_matrix(data, n=1024):
     return labels
 
 def process_lidar(lidar_data, split=True, n=None, threshold=None,
-    optimal_voxel=True, augment=False):
+    optimal_voxel=True, augment=False, 
+    group_threshold=constants.GROUP_THRESHOLD):
     '''
     Fully calls the pipeline for loading the lidar data.
 
@@ -219,6 +233,7 @@ def process_lidar(lidar_data, split=True, n=None, threshold=None,
     points
     augment - whether to augment the data with rotations. If true, return
     the length of augmented data as well
+    group threshold - trees with less than this many points are removed
 
     returns x, y - x is the point cloud, y is the gt labels
         x - shape (num samples, n, 3)
@@ -234,13 +249,15 @@ def process_lidar(lidar_data, split=True, n=None, threshold=None,
     if split:
         lidar_data = quad_points(lidar_data, threshold)
     print('Syncing point cloud sizes...')
-    synced = sync_size(lidar_data, n, optimal_voxel=optimal_voxel)
+    synced = sync_size(lidar_data, n, optimal_voxel=optimal_voxel,
+        group_threshold=group_threshold)
 
     if augment:
         print('Augmenting data...')
         augmented_data = rotation.augment_rotation(lidar_data)
         print('Syncing augmented data sizes...')
-        augmented_synced = sync_size(augmented_data, n, optimal_voxel=optimal_voxel)
+        augmented_synced = sync_size(augmented_data, n, 
+            optimal_voxel=optimal_voxel, group_threshold=group_threshold)
         augmented_size = augmented_synced.shape[0]
         synced = np.r_[synced, augmented_synced]
 
