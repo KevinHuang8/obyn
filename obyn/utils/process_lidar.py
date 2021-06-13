@@ -116,8 +116,10 @@ def sync_size(lidar_data, n=1024, optimal_voxel=True,
     n - number of points to use
     group_threshold - group labels with less than this many points are removed.
     '''
+    old_n_points = []
     new_points = []
     for points in tqdm(lidar_data):
+        num_points = points.shape[0]
         nonzero_pts = points[points[:, 4] != 0]
         zero_pts = points[points[:, 4] == 0]
         
@@ -163,8 +165,9 @@ def sync_size(lidar_data, n=1024, optimal_voxel=True,
             npoints = old_pts
         
         new_points.append(npoints)
+        old_n_points.append(num_points)
 
-    return np.array(new_points)
+    return np.array(new_points), np.array(old_n_points)
 
 def quad_points(lidar_data, threshold=50):
     '''
@@ -247,22 +250,23 @@ def process_lidar(lidar_data, split=True, n=None, threshold=None,
 
     # Whether to split lidar into quadrants (do it for neon)
     if split:
-        lidar_data = quad_points(lidar_data, threshold)
+        lidar_data2 = quad_points(lidar_data, threshold)
     print('Syncing point cloud sizes...')
-    synced = sync_size(lidar_data, n, optimal_voxel=optimal_voxel,
+    synced, num_pts = sync_size(lidar_data2, n, optimal_voxel=optimal_voxel,
         group_threshold=group_threshold)
 
     if augment:
         print('Augmenting data...')
         augmented_data = rotation.augment_rotation(lidar_data)
         print('Syncing augmented data sizes...')
-        augmented_synced = sync_size(augmented_data, n, 
+        augmented_synced, num_pts_aug = sync_size(augmented_data, n, 
             optimal_voxel=optimal_voxel, group_threshold=group_threshold)
         augmented_size = augmented_synced.shape[0]
         synced = np.r_[synced, augmented_synced]
+        num_pts = np.r_[num_pts, num_pts_aug]
 
     #labels = create_group_matrix(synced, n)
     labels = synced[:,:,4]
     if augment:
-        return synced[:, :, :3], labels, augmented_size
-    return synced[:, :, :3], labels
+        return synced[:, :, :3], labels, augmented_size, num_pts
+    return synced[:, :, :3], labels, num_pts

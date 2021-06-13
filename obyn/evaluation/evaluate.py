@@ -6,7 +6,7 @@ from .calculate_ths import calculate_ths
 from ..utils import constants as C
 
 def evaluate(X, y, name, iou_thresh=[C.DEFAULT_IOU_THRESH],
-    num=C.NUM_ITER_PR_CURVE):
+    num=C.NUM_ITER_PR_CURVE, return_conf_list=False):
     '''
     Return average precision (AP) scores on validation data (X, y) using
     model 'name'.
@@ -54,4 +54,6 @@ def evaluate(X, y, name, iou_thresh=[C.DEFAULT_IOU_THRESH],
         ap = np.sum((recalls[:-1] - recalls[1:]) * precisions[:-1])
         ap_dict[iou_t] = ap
 
+    if return_conf_list:
+        return ap_dict, precision_lists, recall_lists, conf_threshs
     return ap_dict, precision_lists, recall_lists

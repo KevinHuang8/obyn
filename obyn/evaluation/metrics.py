@@ -67,4 +67,8 @@ def precision(TP, FP):
 def recall(TP, FN):
     return TP / (TP + FN)
 
+def f1(TP, FP, FN):
+    return TP / (TP + 0.5*(FP + FN))
 
+def f1_PR(precision, recall):
+    return 2*(precision*recall)/(precision + recall)

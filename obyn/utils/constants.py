@@ -33,7 +33,7 @@ NONZERO_POINT_THRESHOLD = 50
 ARTIFICIAL_LABEL_SKIP = 10 
 # How many extra samples to add to the augmented dataset by rotations per original
 # sample
-NUM_EXTRA_AUGMENTED = 4
+NUM_EXTRA_AUGMENTED = 8
 
 # Groups with less than this number of points are removed
 GROUP_THRESHOLD = 10
@@ -53,7 +53,7 @@ BN_DECAY = 0.9
 #########################
 
 BATCH_SIZE = 32
-TRAINING_EPOCHES = 30
+TRAINING_EPOCHES = 20
 
 # Perecent of training data to use for validation
 VALIDATION_SIZE = 0.15

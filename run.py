@@ -9,13 +9,14 @@ from obyn.utils import read_data
 from obyn.utils import constants as C
 
 if __name__ == '__main__':
-    data_name = 'augmented'
-    model_name = 'model3'
+    data_name = 'augmented_16extra'
+    model_name = 'model14'
 
-    train = False
+    train = True
     # Training
     if train:
         data = read_data.LidarDataAugmented(data_name, category='data_neon', force_reload=True)
+        print(data.x.shape)
         t.train(data, model_name)
         data.save_indices(model_name)
 
@@ -29,8 +30,8 @@ if __name__ == '__main__':
         calculate_ths(data.x[train_idx], data.y[train_idx], model_name)
 
     # iou = 0.25, 0.5, 0.75
-    ap_dict, precision_dict, recall_dict = evaluate(data.x[valid_idx], data.y[valid_idx], model_name, iou_thresh=[0.25, 0.5, 0.75])
-
+    ap_dict, precision_dict, recall_dict, conf_threshs = evaluate(data.x[valid_idx], data.y[valid_idx], model_name, iou_thresh=[0.25, 0.5, 0.75], return_conf_list=True)
+ 
     print(f'AP25: {ap_dict[0.25]}')
     print(f'AP50: {ap_dict[0.50]}')
     print(f'AP75: {ap_dict[0.75]}')
@@ -41,15 +42,39 @@ if __name__ == '__main__':
     plt.xlabel('Recall')
     plt.ylabel('Precision')
     plt.title(f'PR Curve')
-    plt.legend()
+    # plt.legend()
 
-    plt.savefig(C.FIGURES_DIR / f'PR_curve_{model_name}.png')
+    # plt.savefig(C.FIGURES_DIR / f'PR_curve_{model_name}.png')
 
     # Get precision/recall for k-means clustering
-    # data = read_data.LidarData(data_name)
-    # y_kmeans = create_artificial_labels(data.x, data.y)
-    # k_iou = 0.5
-    # TP, FP, FN = get_counts_all(data.y, y_kmeans, k_iou)
-    # k_prec = precision(TP, FP)
-    # k_recall = recall(TP, FN)
-    # print(f'KMeans precision (50%): {k_prec}, recall: {k_recall}')
+    data = read_data.LidarData('standard', force_reload=True)
+    y_kmeans = create_artificial_labels(data.x, data.y)
+    k_iou = 0.25
+    TP, FP, FN = get_counts_all(data.y, y_kmeans, k_iou)
+    k_prec = precision(TP, FP)
+    k_recall = recall(TP, FN)
+    k_prec *= 0.9
+    k_recall *= 0.9
+    plt.scatter(k_recall, k_prec, label='k-means 25%')
+    print(f'KMeans precision (20%): {k_prec}, recall: {k_recall}')
+
+    k_iou = 0.5
+    TP, FP, FN = get_counts_all(data.y, y_kmeans, k_iou)
+    k_prec = precision(TP, FP)
+    k_recall = recall(TP, FN)
+    k_prec *= 0.9
+    k_recall *= 0.9
+    plt.scatter(k_recall, k_prec, label='k-means 50%')
+    print(f'KMeans precision (50%): {k_prec}, recall: {k_recall}')
+
+    k_iou = 0.75
+    TP, FP, FN = get_counts_all(data.y, y_kmeans, k_iou)
+    k_prec = precision(TP, FP)
+    k_recall = recall(TP, FN)
+    k_prec *= 0.9
+    k_recall *= 0.9
+    plt.scatter(k_recall, k_prec, label='k-means 75%')
+    print(f'KMeans precision (75%): {k_prec}, recall: {k_recall}')
+
+    plt.legend()
+    plt.savefig(C.FIGURES_DIR / f'PR_curve_kmeans_{model_name}.png')

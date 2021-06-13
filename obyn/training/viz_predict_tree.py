@@ -10,7 +10,7 @@ from ..models import model
 from ..utils import read_data as read_data
 import matplotlib.pyplot as plt
 from ..utils import constants as C
-from ..utils.test_utils import BlockMerging, GroupMerging, obtain_rank, Get_Ths
+from ..utils.test_utils import GroupMerging, obtain_rank, Get_Ths
 from tqdm import tqdm
 from ..utils.visualization import show3d_balls as viz
 

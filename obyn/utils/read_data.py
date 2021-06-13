@@ -229,6 +229,7 @@ class LidarData(Data):
             self.group_threshold = data_obj.group_threshold
             self.x = data_obj.x
             self.y = data_obj.y
+            self.num_points = data_obj.num_pts
             return
 
         print('Reloading data...')
@@ -250,7 +251,7 @@ class LidarData(Data):
             self.lidar.append(lidar_dict[filename])
             self.lidar_filenames.append(filename)
 
-        self.x, self.y = process_lidar(self.lidar, group_threshold=self.group_threshold)
+        self.x, self.y, self.num_pts = process_lidar(self.lidar, group_threshold=self.group_threshold)
 
         # Save to file
         with open(self.savefile, 'wb+') as f:
@@ -335,6 +336,7 @@ class LidarDataAugmented(LidarData):
             self.x = data_obj.x
             self.y = data_obj.y
 
+            self.num_points = data_obj.num_pts
             self.augment_size = data_obj.augment_size
             return
 
@@ -357,7 +359,7 @@ class LidarDataAugmented(LidarData):
             self.lidar.append(lidar_dict[filename])
             self.lidar_filenames.append(filename)
 
-        self.x, self.y, self.augment_size = process_lidar(self.lidar, 
+        self.x, self.y, self.augment_size, self.num_pts = process_lidar(self.lidar, 
             augment=True, group_threshold=self.group_threshold)
 
         # Save to file

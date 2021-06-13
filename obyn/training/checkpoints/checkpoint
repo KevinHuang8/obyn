@@ -1,2 +1,2 @@
-model_checkpoint_path: "c:\\Users\\kehua\\Documents\\Caltech\\CS 148\\obyn\\obyn\\training\\checkpoints\\model7.ckpt"
-all_model_checkpoint_paths: "c:\\Users\\kehua\\Documents\\Caltech\\CS 148\\obyn\\obyn\\training\\checkpoints\\model7.ckpt"
+model_checkpoint_path: "C:\\Users\\kehua\\Documents\\Caltech\\CS 148\\obyn\\obyn\\training\\checkpoints\\model14.ckpt"
+all_model_checkpoint_paths: "C:\\Users\\kehua\\Documents\\Caltech\\CS 148\\obyn\\obyn\\training\\checkpoints\\model14.ckpt"
