@@ -42,39 +42,7 @@ if __name__ == '__main__':
     plt.xlabel('Recall')
     plt.ylabel('Precision')
     plt.title(f'PR Curve')
-    # plt.legend()
-
-    # plt.savefig(C.FIGURES_DIR / f'PR_curve_{model_name}.png')
-
-    # Get precision/recall for k-means clustering
-    data = read_data.LidarData('standard', force_reload=True)
-    y_kmeans = create_artificial_labels(data.x, data.y)
-    k_iou = 0.25
-    TP, FP, FN = get_counts_all(data.y, y_kmeans, k_iou)
-    k_prec = precision(TP, FP)
-    k_recall = recall(TP, FN)
-    k_prec *= 0.9
-    k_recall *= 0.9
-    plt.scatter(k_recall, k_prec, label='k-means 25%')
-    print(f'KMeans precision (20%): {k_prec}, recall: {k_recall}')
-
-    k_iou = 0.5
-    TP, FP, FN = get_counts_all(data.y, y_kmeans, k_iou)
-    k_prec = precision(TP, FP)
-    k_recall = recall(TP, FN)
-    k_prec *= 0.9
-    k_recall *= 0.9
-    plt.scatter(k_recall, k_prec, label='k-means 50%')
-    print(f'KMeans precision (50%): {k_prec}, recall: {k_recall}')
-
-    k_iou = 0.75
-    TP, FP, FN = get_counts_all(data.y, y_kmeans, k_iou)
-    k_prec = precision(TP, FP)
-    k_recall = recall(TP, FN)
-    k_prec *= 0.9
-    k_recall *= 0.9
-    plt.scatter(k_recall, k_prec, label='k-means 75%')
-    print(f'KMeans precision (75%): {k_prec}, recall: {k_recall}')
-
     plt.legend()
-    plt.savefig(C.FIGURES_DIR / f'PR_curve_kmeans_{model_name}.png')
+
+    plt.savefig(C.FIGURES_DIR / f'PR_curve_{model_name}.png')
+
